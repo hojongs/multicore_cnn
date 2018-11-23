@@ -4,6 +4,8 @@
 #include "cnn.h"
 #pragma warning(disable:4996)
 
+extern clock_t pooling_clock, conv_clock, fc_clock, softmax_clock, find_max_clock;
+
 const char *CLASS_NAME[] = {
     "airplane",
     "automobile",
@@ -142,6 +144,12 @@ int main(int argc, char **argv)
     free(labels);
     free(confidences);
     free(labels_ans);
+
+	printf("pooling  : %lf sec \n", (double)pooling_clock / CLOCKS_PER_SEC);
+	printf("conv     : %lf sec \n", (double)conv_clock / CLOCKS_PER_SEC);
+	printf("fc       : %lf sec \n", (double)fc_clock / CLOCKS_PER_SEC);
+	printf("softmax  : %lf sec \n", (double)softmax_clock / CLOCKS_PER_SEC);
+	printf("find_max : %lf sec \n", (double)find_max_clock / CLOCKS_PER_SEC);
 
     return 0;
 }
