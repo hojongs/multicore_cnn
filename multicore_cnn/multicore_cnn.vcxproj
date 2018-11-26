@@ -32,6 +32,7 @@
     <ClCompile Include="cnn_seq.c" />
     <ClCompile Include="compare_result.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="opencl.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cnn.h" />

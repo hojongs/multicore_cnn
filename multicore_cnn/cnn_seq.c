@@ -139,7 +139,8 @@ float* alloc_layer(size_t n) {
 }
 
 void cnn_init() {
-    // nothing to init in the sequential version
+	int gpu_idx = 0;
+	initOpenCL(gpu_idx);
 }
 
 void cnn(float *images, float **network, int *labels, float *confidences, int num_images) {
