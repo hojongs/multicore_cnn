@@ -279,25 +279,19 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &N);
 	CHECK_ERROR(err);
 
-	size_t global_work_size[] = { N, N };
-	//size_t local_work_size[] = { 0 };
+	int work_dim = 3;
+	const size_t global_work_size[] = { D2, N, N };
+	//const size_t local_work_size[] = { 0 };
 
-	for (int out_channel = 0; out_channel < D2; out_channel++)
+	for (int in_channel = 0; in_channel < D1; in_channel++)
 	{
-		err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &out_channel);
+		err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &in_channel);
 		CHECK_ERROR(err);
-		for (int in_channel = 0; in_channel < D1; in_channel++)
-		{
-			err = clSetKernelArg(convKernel, 6, sizeof(cl_int), &in_channel);
-			CHECK_ERROR(err);
-
-			err = clEnqueueNDRangeKernel(
-				kernel_queue, convKernel, 2, NULL,
-				global_work_size, NULL,
-				0, NULL, NULL);
-			CHECK_ERROR(err);
-			clFinish(kernel_queue);
-		}
+		err = clEnqueueNDRangeKernel(
+			kernel_queue, convKernel, work_dim, NULL,
+			global_work_size, NULL,
+			0, NULL, NULL);
+		CHECK_ERROR(err);
 	}
 
 	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, sizeof(float)*D2*N*N, outputs,

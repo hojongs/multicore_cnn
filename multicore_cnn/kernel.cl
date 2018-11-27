@@ -4,12 +4,12 @@ __kernel void conv(
 		__global float* outputs,
 		int D1,
 		int N,
-		int out_channel,
 		int in_channel
 	) 
 {
-	int i = get_global_id(0);
-	int j = get_global_id(1);
+	int out_channel = get_global_id(0);
+	int i = get_global_id(1);
+	int j = get_global_id(2);
 	
     __global float* input = inputs + N * N * in_channel;
     __global float* filter = filters + 3 * 3 * (out_channel * D1 + in_channel);
