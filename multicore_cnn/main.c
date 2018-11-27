@@ -6,6 +6,9 @@
 
 extern clock_t pooling_clock, conv_clock, fc_clock, softmax_clock, find_max_clock;
 
+int compare_result(int argc, char **argv);
+
+
 const char *CLASS_NAME[] = {
     "airplane",
     "automobile",
@@ -19,7 +22,7 @@ const char *CLASS_NAME[] = {
     "truck"
 };
 
-void print_usage_and_exit(char **argv) {
+static void print_usage_and_exit(char **argv) {
     fprintf(stderr, "Usage: %s <number of image> <output>\n", argv[0]);
     fprintf(stderr, " e.g., %s 3000 result.out\n", argv[0]);
     exit(EXIT_FAILURE);
@@ -150,6 +153,9 @@ int main(int argc, char **argv)
 	printf("fc       : %lf sec \n", (double)fc_clock / CLOCKS_PER_SEC);
 	printf("softmax  : %lf sec \n", (double)softmax_clock / CLOCKS_PER_SEC);
 	printf("find_max : %lf sec \n", (double)find_max_clock / CLOCKS_PER_SEC);
+
+	char* params[] = { "", "result.out", "seq.out", NULL };
+	compare_result(3, params);
 
     return 0;
 }

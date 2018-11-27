@@ -49,7 +49,7 @@ static void convolution3x3(float *input, float *output, float *filter, int N) {
             for (k = 0; k < 3; k++) {
                 for (l = 0; l < 3; l++) {
                     int x = i + k - 1;
-                    int y = j + l - 1; 
+                    int y = j + l - 1;
                     if (x >= 0 && x < N && y >= 0 && y < N)
                         sum += input[x * N + y] * filter[k * 3 + l];
                 }
