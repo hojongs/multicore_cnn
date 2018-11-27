@@ -5,6 +5,11 @@
 #include <time.h>
 #include "cnn.h"
 
+void initOpenCL(int platform_idx, int gpu_idx);
+void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N);
+
+extern const char* CLASS_NAME[];
+
 clock_t pooling_clock = 0;
 clock_t conv_clock = 0;
 clock_t fc_clock = 0;
@@ -41,6 +46,29 @@ static void pooling_layer(float *inputs, float *outputs, int D, int N) {
     }
 }
 
+/*
+ * D2 = output channel size
+ * D1 = input channel size
+ * N = width and height of an input image
+ * input image is zero-padded by 1.
+ * Thus, input is (D1, N, N) and output is (D2, N, N)
+ */
+#define ReLU(x) (((x)>0)?(x):0)
+static void convolution_layer_gpu(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
+	int in_channel, out_channel;
+
+    memset(outputs, 0, sizeof(float) * N * N * D2);
+	clConv(inputs, outputs, filters, D2, D1, N);
+
+    for (in_channel = 0; in_channel < D2; in_channel++) {
+        float * output = outputs + N * N * in_channel;
+        float bias = biases[in_channel];
+        for (out_channel = 0; out_channel < N * N; out_channel++) {
+            output[out_channel] = ReLU(output[out_channel] + bias);
+        }
+    }
+}
+
 static void convolution3x3(float *input, float *output, float *filter, int N) {
 	int i, j, k, l;
     for (i = 0; i < N; i++) {
@@ -67,7 +95,7 @@ static void convolution3x3(float *input, float *output, float *filter, int N) {
  * Thus, input is (D1, N, N) and output is (D2, N, N)
  */
 #define ReLU(x) (((x)>0)?(x):0)
-static void convolution_layer(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
+static void convolution_layer_seq(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
 	int i, j;
 
     memset(outputs, 0, sizeof(float) * N * N * D2);
@@ -77,7 +105,7 @@ static void convolution_layer(float *inputs, float *outputs, float *filters, flo
             float * input = inputs + N * N * i;
             float * output = outputs + N * N * j;
             float * filter = filters + 3 * 3 * (j * D1 + i);
-            convolution3x3(input, output, filter, N); 
+            convolution3x3(input, output, filter, N);
         }
     }
 
@@ -139,8 +167,9 @@ float* alloc_layer(size_t n) {
 }
 
 void cnn_init() {
+	int platform_idx = 0;
 	int gpu_idx = 0;
-	initOpenCL(gpu_idx);
+	initOpenCL(platform_idx, gpu_idx);
 }
 
 void cnn(float *images, float **network, int *labels, float *confidences, int num_images) {
@@ -199,6 +228,7 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
 
 	clock_t start;
 
+#define convolution_layer convolution_layer_gpu
     // run network
     for(int i = 0; i < num_images; ++i)
     {
@@ -261,6 +291,8 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
         labels[i] = find_max(fc3, 10);
         confidences[i] = fc3[labels[i]];
 		find_max_clock += clock() - start;
+
+		fprintf(stdout, "Image %04d/%04d: %s %f\n", i+1, num_images, CLASS_NAME[labels[i]], confidences[i]);
     }
 
     free(c1_1); free(c1_2); free(p1);

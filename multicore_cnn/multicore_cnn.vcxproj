@@ -29,7 +29,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cnn_seq.c" />
+    <ClCompile Include="cnn.c" />
     <ClCompile Include="compare_result.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="opencl.c" />

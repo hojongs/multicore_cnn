@@ -4,10 +4,9 @@
 #include "cnn.h"
 #pragma warning(disable:4996)
 
-extern clock_t pooling_clock, conv_clock, fc_clock, softmax_clock, find_max_clock;
-
 int compare_result(int argc, char **argv);
 
+extern clock_t pooling_clock, conv_clock, fc_clock, softmax_clock, find_max_clock;
 
 const char *CLASS_NAME[] = {
     "airplane",

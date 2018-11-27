@@ -12,6 +12,9 @@
 #define NOT !
 #define STR_LEN 65536
 
+cl_context context;
+cl_command_queue kernel_queue;
+cl_kernel convKernel;
 
 const char *getErrorString(cl_int error)
 {
@@ -140,14 +143,11 @@ cl_kernel getKernel(cl_context context, cl_device_id device, const char* source_
 	return kernel;
 }
 
-cl_device_id getDevice()
+cl_device_id getDevice(int platform_idx, int gpu_idx)
 {
 	char str[STR_LEN] = { 0 };
 	cl_int err;
 	cl_device_id device;
-
-	const int GPU_PLATFORM_IDX = 0;
-	const int GPU_DEV_IDX = 0;
 
 	cl_uint num_platforms;
 	err = clGetPlatformIDs(0, NULL, &num_platforms);
@@ -186,7 +186,7 @@ cl_device_id getDevice()
 		{
 			printf("device: %u\n", d);
 
-			if (p == GPU_PLATFORM_IDX AND d == GPU_DEV_IDX)
+			if (p == platform_idx AND d == gpu_idx)
 				device = devices[d];
 
 			cl_device_type device_type;
@@ -257,35 +257,66 @@ cl_device_id getDevice()
 	return device;
 }
 
-void initOpenCL(int gpu_idx)
+void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N)
+{
+	cl_int err;
+
+	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * D1*N*N, inputs, &err);
+	CHECK_ERROR(err);
+	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * 3 * 3 * (D2 * D1 + D1), filters, &err);
+	CHECK_ERROR(err);
+	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float) * D2*N*N, outputs, &err);
+	CHECK_ERROR(err);
+
+	err = clSetKernelArg(convKernel, 0, sizeof(cl_mem), &bufInputs);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 1, sizeof(cl_mem), &bufFilters);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 2, sizeof(cl_mem), &bufOutputs);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 3, sizeof(cl_int), &D1);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &N);
+	CHECK_ERROR(err);
+
+	size_t global_work_size[] = { N, N };
+	//size_t local_work_size[] = { 0 };
+
+	for (int out_channel = 0; out_channel < D2; out_channel++)
+	{
+		err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &out_channel);
+		CHECK_ERROR(err);
+		for (int in_channel = 0; in_channel < D1; in_channel++)
+		{
+			err = clSetKernelArg(convKernel, 6, sizeof(cl_int), &in_channel);
+			CHECK_ERROR(err);
+
+			err = clEnqueueNDRangeKernel(
+				kernel_queue, convKernel, 2, NULL,
+				global_work_size, NULL,
+				0, NULL, NULL);
+			CHECK_ERROR(err);
+			clFinish(kernel_queue);
+		}
+	}
+
+	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, sizeof(float)*D2*N*N, outputs,
+		0, NULL, NULL);
+	CHECK_ERROR(err);
+
+	clReleaseMemObject(bufInputs);
+	clReleaseMemObject(bufFilters);
+	clReleaseMemObject(bufOutputs);
+}
+
+void initOpenCL(int platform_idx, int gpu_idx)
 {
 	cl_int err = 0;
 	char str[STR_LEN] = { 0 };
 
-	float range_end = 1000.0f;
-	const int work_cnt = 538870912 / (int)pow(2, 10);
+	cl_device_id device = getDevice(platform_idx, gpu_idx);
 
-	cl_device_id device = getDevice();
-
-	// get max work group size
-	size_t max_work_group_size = 0;
-	err = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &max_work_group_size, NULL);
-	CHECK_ERROR(err);
-
-	// init work group size
-	size_t work_group_size = max_work_group_size;
-	while (work_cnt % work_group_size != 0)
-		work_group_size /= 2;
-
-	// init work group cnt
-	const int workGroupCnt = work_cnt / work_group_size;
-	printf("work_group_size=%u \n", work_group_size);
-
-	cl_ulong local_mem_size = 0;
-	err = clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &local_mem_size, NULL);
-	CHECK_ERROR(err);
-
-	cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
+	context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
 	CHECK_ERROR(err);
 
 	// 2.0
@@ -293,75 +324,8 @@ void initOpenCL(int gpu_idx)
 	//queue = clCreateCommandQueueWithProperties(context, devices[gpu_idx], NULL, &err);
 	cl_command_queue data_queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
 	CHECK_ERROR(err);
-	cl_command_queue kernel_queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
+	kernel_queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
 	CHECK_ERROR(err);
 
-	cl_kernel kernel = getKernel(context, device, "integral.cl", "integral");
-
-	//cl_mem bufOut = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(Item) * workGroupCnt, NULL, &err);
-	//CHECK_ERROR(err);
-
-	//err = clSetKernelArg(kernel, 0, sizeof(cl_float), &range_end);
-	//CHECK_ERROR(err);
-	//err = clSetKernelArg(kernel, 1, sizeof(cl_uint), &work_cnt);
-	//CHECK_ERROR(err);
-	//err = clSetKernelArg(kernel, 2, sizeof(cl_float) * work_group_size, NULL);
-	//CHECK_ERROR(err);
-	//err = clSetKernelArg(kernel, 3, sizeof(cl_mem), &bufOut);
-	//CHECK_ERROR(err);
-
-	//const int work_dim = 1;
-	//size_t* global_work_size = (size_t*)calloc(sizeof(size_t), work_dim);
-	//global_work_size[0] = work_group_size;
-
-	//size_t* local_work_size = (size_t*)calloc(sizeof(size_t), work_dim);
-	//local_work_size[0] = work_group_size;
-
-	//Vector out = initVector(workGroupCnt);
-	//cl_event kernel_event;
-
-	//for (int offset = 0; offset < workGroupCnt; offset++)
-	//{
-	//	err = clEnqueueNDRangeKernel(
-	//		kernel_queue, kernel, work_dim, NULL,
-	//		global_work_size, local_work_size,
-	//		0, NULL, &kernel_event[offset]);
-	//	CHECK_ERROR(err);
-	//}
-
-	//double gpu_sum = 0;
-	//cl_event* read_event = (cl_event*)calloc(workGroupCnt, sizeof(cl_event));
-	//for (int offset = 0; offset < workGroupCnt; offset++)
-	//{
-	//	// stuck
-	//	//err = clEnqueueReadBuffer(data_queue, bufOut, CL_TRUE, sizeof(Item) * offset, sizeof(Item), &out.arr[offset],
-	//	//    1, &kernel_event[offset], &read_event[offset]);
-
-	//	clWaitForEvents(1, &kernel_event[offset]);
-	//	err = clEnqueueReadBuffer(data_queue, bufOut, CL_TRUE, sizeof(Item) * offset, sizeof(Item), &out.arr[offset],
-	//		0, NULL, &read_event[offset]);
-	//	CHECK_ERROR(err);
-	//	//printf("out.arr[%d]=%f \n", offset, out.arr[offset]);
-	//	gpu_sum += out.arr[offset];
-	//}
-
-	//cl_ulong total_start = 0, total_end = 0;
-	//err = clGetEventProfilingInfo(kernel_event[0], CL_PROFILING_COMMAND_START,
-	//	sizeof(cl_ulong), &total_start, NULL);
-	//CHECK_ERROR(err);
-	//err = clGetEventProfilingInfo(read_event[workGroupCnt - 1], CL_PROFILING_COMMAND_END,
-	//	sizeof(cl_ulong), &total_end, NULL);
-	//CHECK_ERROR(err);
-	//printf("elapsed gpu total time = %llu ns \n", total_end - total_start);
-	//printf("gpu sum : %f \n", gpu_sum);
-
-	//free(kernel_event);
-	//free(read_event);
-	//free(id_offset);
-	//free(group_offset);
-	//free(global_work_size);
-	//free(local_work_size);
-	//freeVector(out);
-
-	//return 0;
+	convKernel = getKernel(context, device, "kernel.cl", "conv");
 }
