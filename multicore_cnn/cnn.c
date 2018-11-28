@@ -180,6 +180,7 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
     float *w4_1, *b4_1, *w4_2, *b4_2, *w4_3, *b4_3;
     float *w5_1, *b5_1, *w5_2, *b5_2, *w5_3, *b5_3;
     float *w1, *b1, *w2, *b2, *w3, *b3;
+	// TODO alloc weight, bias on gpu mem
     w1_1 = network[0]; b1_1 = network[1];
     w1_2 = network[2]; b1_2 = network[3];
     w2_1 = network[4]; b2_1 = network[5];
@@ -204,6 +205,8 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
     float *c4_1, *c4_2, *c4_3, *p4;
     float *c5_1, *c5_2, *c5_3, *p5;
     float *fc1, *fc2, *fc3;
+	// TODO alloc images on gpu mem
+	// TODO alloc layer on gpu mem
     c1_1 = alloc_layer(64 * 32 * 32);
     c1_2 = alloc_layer(64 * 32 * 32);
     p1   = alloc_layer(64 * 16 * 16);
@@ -235,6 +238,7 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
         float *image = images + i * 3 * 32 * 32;
 
 		start = clock();
+		// TODO pass i instead of pointer (and calc offset)
         convolution_layer(image, c1_1, w1_1, b1_1, 64, 3, 32);
         convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32);
 		conv_clock += clock() - start;
@@ -295,6 +299,7 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
 		fprintf(stdout, "Image %04d/%04d: %s %f\n", i+1, num_images, CLASS_NAME[labels[i]], confidences[i]);
     }
 
+	// TODO ReleaseMemObject
     free(c1_1); free(c1_2); free(p1);
     free(c2_1); free(c2_2); free(p2);
     free(c3_1); free(c3_2); free(c3_3); free(p3);

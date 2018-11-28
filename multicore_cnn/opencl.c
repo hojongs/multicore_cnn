@@ -261,6 +261,7 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 {
 	cl_int err;
 
+	// TODO don't need create buffer
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * D1*N*N, inputs, &err);
 	CHECK_ERROR(err);
 	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * 3 * 3 * (D2 * D1 + D1), filters, &err);
@@ -279,10 +280,11 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &N);
 	CHECK_ERROR(err);
 
-	int work_dim = 3;
-	const size_t global_work_size[] = { D2, N, N };
+	int work_dim = 2;
+	const size_t global_work_size[] = { D2, N*N };
 	//const size_t local_work_size[] = { 0 };
 
+	// TODO understand mechanism to put in_channel into kernel
 	for (int in_channel = 0; in_channel < D1; in_channel++)
 	{
 		err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &in_channel);
@@ -294,6 +296,7 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 		CHECK_ERROR(err);
 	}
 
+	// TODO don't need read gpu mem
 	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, sizeof(float)*D2*N*N, outputs,
 		0, NULL, NULL);
 	CHECK_ERROR(err);
