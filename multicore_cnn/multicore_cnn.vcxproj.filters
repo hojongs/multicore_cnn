@@ -15,16 +15,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="compare_result.c">
+    <ClCompile Include="cnn.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="main.c">
+    <ClCompile Include="compare_result.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="opencl.c">
+    <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cnn.c">
+    <ClCompile Include="opencl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

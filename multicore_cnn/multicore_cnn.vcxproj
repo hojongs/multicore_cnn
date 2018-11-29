@@ -29,10 +29,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cnn.c" />
-    <ClCompile Include="compare_result.c" />
-    <ClCompile Include="main.c" />
-    <ClCompile Include="opencl.c" />
+    <ClCompile Include="cnn.cpp" />
+    <ClCompile Include="compare_result.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="opencl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cnn.h" />
