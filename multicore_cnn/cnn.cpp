@@ -54,7 +54,7 @@ static void pooling_layer(float *inputs, float *outputs, int D, int N) {
  * Thus, input is (D1, N, N) and output is (D2, N, N)
  */
 #define ReLU(x) (((x)>0)?(x):0)
-static void convolution_layer_gpu(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
+static void convolution_layer(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
 	int in_channel, out_channel;
 
     memset(outputs, 0, sizeof(float) * N * N * D2);
@@ -65,55 +65,6 @@ static void convolution_layer_gpu(float *inputs, float *outputs, float *filters,
         float bias = biases[in_channel];
         for (out_channel = 0; out_channel < N * N; out_channel++) {
             output[out_channel] = ReLU(output[out_channel] + bias);
-        }
-    }
-}
-
-static void convolution3x3(float *input, float *output, float *filter, int N) {
-	int i, j, k, l;
-    for (i = 0; i < N; i++) {
-        for (j = 0; j < N; j++) {
-            float sum = 0;
-            for (k = 0; k < 3; k++) {
-                for (l = 0; l < 3; l++) {
-                    int x = i + k - 1;
-                    int y = j + l - 1;
-                    if (x >= 0 && x < N && y >= 0 && y < N)
-                        sum += input[x * N + y] * filter[k * 3 + l];
-                }
-            }
-            output[i * N + j] += sum;
-        }
-    }
-}
-
-/*
- * D2 = output channel size
- * D1 = input channel size
- * N = width and height of an input image
- * input image is zero-padded by 1.
- * Thus, input is (D1, N, N) and output is (D2, N, N)
- */
-#define ReLU(x) (((x)>0)?(x):0)
-static void convolution_layer_seq(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
-	int i, j;
-
-    memset(outputs, 0, sizeof(float) * N * N * D2);
-
-	for (j = 0; j < D2; j++) {
-        for (i = 0; i < D1; i++) {
-            float * input = inputs + N * N * i;
-            float * output = outputs + N * N * j;
-            float * filter = filters + 3 * 3 * (j * D1 + i);
-            convolution3x3(input, output, filter, N);
-        }
-    }
-
-    for (i = 0; i < D2; i++) {
-        float * output = outputs + N * N * i;
-        float bias = biases[i];
-        for (j = 0; j < N * N; j++) {
-            output[j] = ReLU(output[j] + bias);
         }
     }
 }
@@ -231,7 +182,6 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
 
 	clock_t start;
 
-#define convolution_layer convolution_layer_gpu
     // run network
     for(int i = 0; i < num_images; ++i)
     {
