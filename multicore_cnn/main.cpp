@@ -111,6 +111,8 @@ float** slice_network(float *p) {
     return r;
 }
 
+extern long long write_nsec, read_nsec;
+
 int main(int argc, char **argv)
 {
     if (argc != 3) {
@@ -152,6 +154,8 @@ int main(int argc, char **argv)
 	printf("fc       : %lf sec \n", (double)fc_clock / CLOCKS_PER_SEC);
 	printf("softmax  : %lf sec \n", (double)softmax_clock / CLOCKS_PER_SEC);
 	printf("find_max : %lf sec \n", (double)find_max_clock / CLOCKS_PER_SEC);
+	printf("write_sec : %lf sec \n", write_nsec / 1000000000.0);
+	printf("read_sec : %lf sec \n", read_nsec / 1000000000.0);
 
 	char* params[] = { "", "result.out", "seq.out", NULL };
 	compare_result(3, params);

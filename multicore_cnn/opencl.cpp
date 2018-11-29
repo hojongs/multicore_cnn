@@ -1,6 +1,7 @@
 #pragma warning(disable:4996)
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <CL/cl.h>
 #define CHECK_ERROR(err) \
   if (err != CL_SUCCESS) { \
@@ -257,16 +258,28 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 	return device;
 }
 
+long long write_nsec = 0, read_nsec = 0;
+
 void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N)
 {
 	cl_int err;
 
 	// TODO don't need create buffer
-	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * D1*N*N, inputs, &err);
+	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * D1*N*N, NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * 3 * 3 * (D2 * D1 + D1), filters, &err);
+	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * 3 * 3 * (D2 * D1 + D1), NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float) * D2*N*N, outputs, &err);
+	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * D2*N*N, NULL, &err);
+	CHECK_ERROR(err);
+
+	size_t offset = 0;
+	int num_events = 0;
+	cl_event write_event[3] = { 0 };
+	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, offset, sizeof(float) * D1*N*N, inputs, num_events, NULL, &write_event[0]);
+	CHECK_ERROR(err);
+	err = clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, offset, sizeof(float) * 3 * 3 * (D2 * D1 + D1), filters, num_events, NULL, &write_event[1]);
+	CHECK_ERROR(err);
+	err = clEnqueueWriteBuffer(kernel_queue, bufOutputs, CL_FALSE, offset, sizeof(float) * D2*N*N, outputs, num_events, NULL, &write_event[2]);
 	CHECK_ERROR(err);
 
 	err = clSetKernelArg(convKernel, 0, sizeof(cl_mem), &bufInputs);
@@ -297,13 +310,32 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	}
 
 	// TODO don't need read gpu mem
+	cl_event read_event;
 	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, sizeof(float)*D2*N*N, outputs,
-		0, NULL, NULL);
+		0, NULL, &read_event);
 	CHECK_ERROR(err);
 
 	clReleaseMemObject(bufInputs);
 	clReleaseMemObject(bufFilters);
 	clReleaseMemObject(bufOutputs);
+
+	cl_ulong start, end;
+	for (int i = 0; i < 3; i++)
+	{
+		err = clGetEventProfilingInfo(write_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+		CHECK_ERROR(err);
+		err = clGetEventProfilingInfo(write_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+		CHECK_ERROR(err);
+
+		write_nsec += end - start;
+	}
+
+	err = clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+	CHECK_ERROR(err);
+	err = clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+	CHECK_ERROR(err);
+
+	read_nsec += end - start;
 }
 
 void initOpenCL(int platform_idx, int gpu_idx)
