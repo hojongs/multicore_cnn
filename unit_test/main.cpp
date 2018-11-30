@@ -56,7 +56,7 @@ static void convolution_layer_seq(float *inputs, float *outputs, float *filters,
 
 int main()
 {
-	int batch_size = 64;
+	int batch_size = 256;
 	clock_t start, end;
 
 	int num_images = batch_size;

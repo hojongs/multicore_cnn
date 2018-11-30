@@ -296,8 +296,18 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	CHECK_ERROR(err);
 
 	int work_dim = 3;
+	int work_group_size = 256;
 	const size_t global_work_size[] = { D2, N*N, batch_size };
-	//const size_t local_work_size[] = { 0 };
+	size_t local_work_size[] = { 1, 1, 1 };
+	if (D2 < work_group_size)
+	{
+		local_work_size[0] = D2;
+		local_work_size[1] = work_group_size / D2;
+	}
+	else
+	{
+		local_work_size[0] = work_group_size;
+	}
 
 	// TODO understand mechanism to put in_channel into kernel
 	for (int in_channel = 0; in_channel < D1; in_channel++)
@@ -306,7 +316,7 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 		CHECK_ERROR(err);
 		err = clEnqueueNDRangeKernel(
 			kernel_queue, convKernel, work_dim, NULL,
-			global_work_size, NULL,
+			global_work_size, local_work_size,
 			0, NULL, NULL);
 		CHECK_ERROR(err);
 	}
