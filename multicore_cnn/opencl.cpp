@@ -264,7 +264,6 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 {
 	cl_int err;
 
-	// TODO don't need create buffer
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * D1*N*N*batch_size, NULL, &err);
 	CHECK_ERROR(err);
 	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * 3 * 3 * (D2 * D1 + D1)*batch_size, NULL, &err);
@@ -321,7 +320,6 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 		CHECK_ERROR(err);
 	}
 
-	// TODO don't need read gpu mem
 	cl_event read_event;
 	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, sizeof(float)*D2*N*N*batch_size, outputs,
 		0, NULL, &read_event);
