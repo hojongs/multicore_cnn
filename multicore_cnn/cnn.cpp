@@ -58,13 +58,16 @@ void convolution_layer(float *inputs, float *outputs, float *filters, float *bia
     memset(outputs, 0, sizeof(float) * N * N * D2 * batch_size);
 	clConv(inputs, outputs, filters, D2, D1, N, batch_size);
 
-    for (int out_channel = 0; out_channel < D2; out_channel++) {
-        float * output = outputs + N * N * out_channel;
-        float bias = biases[out_channel];
-        for (int i = 0; i < N * N; i++) {
-            output[i] = ReLU(output[i] + bias);
-        }
-    }
+	for (int batch = 0; batch < batch_size; batch++)
+	{
+		for (int out_channel = 0; out_channel < D2; out_channel++) {
+			float * output = outputs + (N*N*D2*batch) + (N*N*out_channel);
+			float bias = biases[out_channel];
+			for (int i = 0; i < N * N; i++) {
+				output[i] = ReLU(output[i] + bias);
+			}
+		}
+	}
 }
 
 /*

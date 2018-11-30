@@ -265,21 +265,21 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	cl_int err;
 
 	// TODO don't need create buffer
-	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * D1*N*N, NULL, &err);
+	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * D1*N*N*batch_size, NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * 3 * 3 * (D2 * D1 + D1), NULL, &err);
+	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * 3 * 3 * (D2 * D1 + D1)*batch_size, NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * D2*N*N, NULL, &err);
+	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * D2*N*N*batch_size, NULL, &err);
 	CHECK_ERROR(err);
 
 	size_t offset = 0;
 	int num_events = 0;
 	cl_event write_event[3] = { 0 };
-	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, offset, sizeof(float) * D1*N*N, inputs, num_events, NULL, &write_event[0]);
+	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, offset, sizeof(float) * D1*N*N*batch_size, inputs, num_events, NULL, &write_event[0]);
 	CHECK_ERROR(err);
-	err = clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, offset, sizeof(float) * 3 * 3 * (D2 * D1 + D1), filters, num_events, NULL, &write_event[1]);
+	err = clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, offset, sizeof(float) * 3 * 3 * (D2 * D1 + D1)*batch_size, filters, num_events, NULL, &write_event[1]);
 	CHECK_ERROR(err);
-	err = clEnqueueWriteBuffer(kernel_queue, bufOutputs, CL_FALSE, offset, sizeof(float) * D2*N*N, outputs, num_events, NULL, &write_event[2]);
+	err = clEnqueueWriteBuffer(kernel_queue, bufOutputs, CL_FALSE, offset, sizeof(float) * D2*N*N*batch_size, outputs, num_events, NULL, &write_event[2]);
 	CHECK_ERROR(err);
 
 	err = clSetKernelArg(convKernel, 0, sizeof(cl_mem), &bufInputs);
@@ -290,17 +290,19 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	CHECK_ERROR(err);
 	err = clSetKernelArg(convKernel, 3, sizeof(cl_int), &D1);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &N);
+	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &D2);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &N);
 	CHECK_ERROR(err);
 
-	int work_dim = 2;
-	const size_t global_work_size[] = { D2, N*N };
+	int work_dim = 3;
+	const size_t global_work_size[] = { D2, N*N, batch_size };
 	//const size_t local_work_size[] = { 0 };
 
 	// TODO understand mechanism to put in_channel into kernel
 	for (int in_channel = 0; in_channel < D1; in_channel++)
 	{
-		err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &in_channel);
+		err = clSetKernelArg(convKernel, 6, sizeof(cl_int), &in_channel);
 		CHECK_ERROR(err);
 		err = clEnqueueNDRangeKernel(
 			kernel_queue, convKernel, work_dim, NULL,
@@ -311,7 +313,7 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 
 	// TODO don't need read gpu mem
 	cl_event read_event;
-	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, sizeof(float)*D2*N*N, outputs,
+	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, sizeof(float)*D2*N*N*batch_size, outputs,
 		0, NULL, &read_event);
 	CHECK_ERROR(err);
 
