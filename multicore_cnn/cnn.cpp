@@ -55,16 +55,14 @@ void pooling_layer(float *inputs, float *outputs, int D, int N) {
 #define ReLU(x) (((x)>0)?(x):0)
 void convolution_layer(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N, int batch_size)
 {
-	int in_channel, out_channel;
-
     memset(outputs, 0, sizeof(float) * N * N * D2 * batch_size);
 	clConv(inputs, outputs, filters, D2, D1, N, batch_size);
 
-    for (in_channel = 0; in_channel < D2; in_channel++) {
-        float * output = outputs + N * N * in_channel;
-        float bias = biases[in_channel];
-        for (out_channel = 0; out_channel < N * N; out_channel++) {
-            output[out_channel] = ReLU(output[out_channel] + bias);
+    for (int out_channel = 0; out_channel < D2; out_channel++) {
+        float * output = outputs + N * N * out_channel;
+        float bias = biases[out_channel];
+        for (int i = 0; i < N * N; i++) {
+            output[i] = ReLU(output[i] + bias);
         }
     }
 }
