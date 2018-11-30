@@ -6,7 +6,6 @@
 #include "cnn.h"
 
 void initOpenCL(int platform_idx, int gpu_idx);
-void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N);
 
 extern const char* CLASS_NAME[];
 
@@ -16,7 +15,7 @@ clock_t fc_clock = 0;
 clock_t softmax_clock = 0;
 clock_t find_max_clock = 0;
 
-static void pooling2x2(float *input, float *output, int N) {
+void pooling2x2(float *input, float *output, int N) {
     int i, j, k, l;
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
@@ -37,7 +36,7 @@ static void pooling2x2(float *input, float *output, int N) {
  * N = width and height of an output image
  * Thus, input is (D, N * 2, N * 2) and output is (D, N, N).
  */
-static void pooling_layer(float *inputs, float *outputs, int D, int N) {
+void pooling_layer(float *inputs, float *outputs, int D, int N) {
 	int i;
     for (i = 0; i < D; i++) {
         float * input = inputs + i * N * N * 4;
@@ -54,11 +53,12 @@ static void pooling_layer(float *inputs, float *outputs, int D, int N) {
  * Thus, input is (D1, N, N) and output is (D2, N, N)
  */
 #define ReLU(x) (((x)>0)?(x):0)
-static void convolution_layer(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
+void convolution_layer(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N, int batch_size)
+{
 	int in_channel, out_channel;
 
-    memset(outputs, 0, sizeof(float) * N * N * D2);
-	clConv(inputs, outputs, filters, D2, D1, N);
+    memset(outputs, 0, sizeof(float) * N * N * D2 * batch_size);
+	clConv(inputs, outputs, filters, D2, D1, N, batch_size);
 
     for (in_channel = 0; in_channel < D2; in_channel++) {
         float * output = outputs + N * N * in_channel;
@@ -73,7 +73,7 @@ static void convolution_layer(float *inputs, float *outputs, float *filters, flo
  * M = output size
  * N = input size
  */
-static void fc_layer(float *input_neuron, float *output_neuron, float *weights, float *biases, int M, int N) {
+void fc_layer(float *input_neuron, float *output_neuron, float *weights, float *biases, int M, int N) {
 	int i, j;
     for (j = 0; j < M; j++) {
         float sum = 0;
@@ -85,7 +85,7 @@ static void fc_layer(float *input_neuron, float *output_neuron, float *weights, 
     }
 }
 
-static void softmax(float *output, int N) {
+void softmax(float *output, int N) {
     int i;
     float max = output[0];
     for (i = 1; i < N; i++) {
@@ -100,7 +100,7 @@ static void softmax(float *output, int N) {
     }
 }
 
-static int find_max(float *fc, int N) {
+int find_max(float *fc, int N) {
     int i;
     int maxid = 0;
     float maxval = 0;
@@ -113,13 +113,14 @@ static int find_max(float *fc, int N) {
     return maxid;
 }
 
-float* alloc_layer(size_t n) {
+float* alloc_layer(size_t n)
+{
     return (float*)malloc(n * sizeof(float));
 }
 
 void cnn_init() {
 	int platform_idx = 0;
-	int gpu_idx = 0;
+	int gpu_idx = 1;
 	initOpenCL(platform_idx, gpu_idx);
 }
 
@@ -191,43 +192,43 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
 
 		start = clock();
 		// TODO pass i instead of pointer (and calc offset)
-        convolution_layer(image, c1_1, w1_1, b1_1, 64, 3, 32);
-        convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32);
+        convolution_layer(image, c1_1, w1_1, b1_1, 64, 3, 32, batch_size);
+        convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32, batch_size);
 		conv_clock += clock() - start;
 		start = clock();
 		pooling_layer(c1_2, p1, 64, 16);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		convolution_layer(p1, c2_1, w2_1, b2_1, 128, 64, 16);
-        convolution_layer(c2_1, c2_2, w2_2, b2_2, 128, 128, 16);
+		convolution_layer(p1, c2_1, w2_1, b2_1, 128, 64, 16, batch_size);
+        convolution_layer(c2_1, c2_2, w2_2, b2_2, 128, 128, 16, batch_size);
 		conv_clock += clock() - start;
 		start = clock();
 		pooling_layer(c2_2, p2, 128, 8);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		convolution_layer(p2, c3_1, w3_1, b3_1, 256, 128, 8);
-        convolution_layer(c3_1, c3_2, w3_2, b3_2, 256, 256, 8);
-        convolution_layer(c3_2, c3_3, w3_3, b3_3, 256, 256, 8);
+		convolution_layer(p2, c3_1, w3_1, b3_1, 256, 128, 8, batch_size);
+        convolution_layer(c3_1, c3_2, w3_2, b3_2, 256, 256, 8, batch_size);
+        convolution_layer(c3_2, c3_3, w3_3, b3_3, 256, 256, 8, batch_size);
 		conv_clock += clock() - start;
 		start = clock();
 		pooling_layer(c3_3, p3, 256, 4);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		convolution_layer(p3, c4_1, w4_1, b4_1, 512, 256, 4);
-        convolution_layer(c4_1, c4_2, w4_2, b4_2, 512, 512, 4);
-        convolution_layer(c4_2, c4_3, w4_3, b4_3, 512, 512, 4);
+		convolution_layer(p3, c4_1, w4_1, b4_1, 512, 256, 4, batch_size);
+        convolution_layer(c4_1, c4_2, w4_2, b4_2, 512, 512, 4, batch_size);
+        convolution_layer(c4_2, c4_3, w4_3, b4_3, 512, 512, 4, batch_size);
 		conv_clock += clock() - start;
 		start = clock();
 		pooling_layer(c4_3, p4, 512, 2);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		convolution_layer(p4, c5_1, w5_1, b5_1, 512, 512, 2);
-        convolution_layer(c5_1, c5_2, w5_2, b5_2, 512, 512, 2);
-        convolution_layer(c5_2, c5_3, w5_3, b5_3, 512, 512, 2);
+		convolution_layer(p4, c5_1, w5_1, b5_1, 512, 512, 2, batch_size);
+        convolution_layer(c5_1, c5_2, w5_2, b5_2, 512, 512, 2, batch_size);
+        convolution_layer(c5_2, c5_3, w5_3, b5_3, 512, 512, 2, batch_size);
 		conv_clock += clock() - start;
 		start = clock();
 		pooling_layer(c5_3, p5, 512, 1);

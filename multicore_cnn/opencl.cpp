@@ -148,7 +148,7 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 {
 	char str[STR_LEN] = { 0 };
 	cl_int err;
-	cl_device_id device;
+	cl_device_id device = NULL;
 
 	cl_uint num_platforms;
 	err = clGetPlatformIDs(0, NULL, &num_platforms);
@@ -260,7 +260,7 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 
 long long write_nsec = 0, read_nsec = 0;
 
-void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N)
+void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N, int batch_size)
 {
 	cl_int err;
 

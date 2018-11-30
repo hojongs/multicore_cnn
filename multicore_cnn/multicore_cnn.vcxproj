@@ -33,6 +33,7 @@
     <ClCompile Include="compare_result.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="opencl.cpp" />
+    <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cnn.h" />
