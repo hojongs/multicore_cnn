@@ -266,7 +266,7 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * D1*N*N*batch_size, NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * 3 * 3 * (D2 * D1 + D1)*batch_size, NULL, &err);
+	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * 3 * 3 * (D2 * D1 + D1), NULL, &err);
 	CHECK_ERROR(err);
 	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * D2*N*N*batch_size, NULL, &err);
 	CHECK_ERROR(err);
@@ -276,7 +276,7 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	cl_event write_event[3] = { 0 };
 	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, offset, sizeof(float) * D1*N*N*batch_size, inputs, num_events, NULL, &write_event[0]);
 	CHECK_ERROR(err);
-	err = clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, offset, sizeof(float) * 3 * 3 * (D2 * D1 + D1)*batch_size, filters, num_events, NULL, &write_event[1]);
+	err = clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, offset, sizeof(float) * 3 * 3 * (D2 * D1 + D1), filters, num_events, NULL, &write_event[1]);
 	CHECK_ERROR(err);
 	err = clEnqueueWriteBuffer(kernel_queue, bufOutputs, CL_FALSE, offset, sizeof(float) * D2*N*N*batch_size, outputs, num_events, NULL, &write_event[2]);
 	CHECK_ERROR(err);
@@ -367,4 +367,6 @@ void initOpenCL(int platform_idx, int gpu_idx)
 	CHECK_ERROR(err);
 
 	convKernel = getKernel(context, device, "kernel.cl", "conv");
+	
+	printf("********** platform=%d, dev=%d ********** \n", platform_idx, gpu_idx);
 }
