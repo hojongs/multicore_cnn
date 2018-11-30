@@ -124,6 +124,8 @@ void cnn_init() {
 }
 
 void cnn(float *images, float **network, int *labels, float *confidences, int num_images) {
+	int batch_size = 1;
+
     // slice the network into weights and biases
     float *w1_1, *b1_1, *w1_2, *b1_2;
     float *w2_1, *b2_1, *w2_2, *b2_2;
@@ -158,32 +160,32 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
     float *fc1, *fc2, *fc3;
 	// TODO alloc images on gpu mem
 	// TODO alloc layer on gpu mem
-    c1_1 = alloc_layer(64 * 32 * 32);
-    c1_2 = alloc_layer(64 * 32 * 32);
-    p1   = alloc_layer(64 * 16 * 16);
-    c2_1 = alloc_layer(128 * 16 * 16);
-    c2_2 = alloc_layer(128 * 16 * 16);
-    p2   = alloc_layer(128 * 8 * 8);
-    c3_1 = alloc_layer(256 * 8 * 8);
-    c3_2 = alloc_layer(256 * 8 * 8);
-    c3_3 = alloc_layer(256 * 8 * 8);
-    p3   = alloc_layer(256 * 4 * 4);
-    c4_1 = alloc_layer(512 * 4 * 4);
-    c4_2 = alloc_layer(512 * 4 * 4);
-    c4_3 = alloc_layer(512 * 4 * 4);
-    p4   = alloc_layer(512 * 2 * 2);
-    c5_1 = alloc_layer(512 * 2 * 2);
-    c5_2 = alloc_layer(512 * 2 * 2);
-    c5_3 = alloc_layer(512 * 2 * 2);
-    p5   = alloc_layer(512 * 1 * 1);
-    fc1  = alloc_layer(512);
-    fc2  = alloc_layer(512);
-    fc3  = alloc_layer(10);
+    c1_1 = alloc_layer(64 * 32 * 32 * batch_size);
+    c1_2 = alloc_layer(64 * 32 * 32 * batch_size);
+    p1   = alloc_layer(64 * 16 * 16 * batch_size);
+    c2_1 = alloc_layer(128 * 16 * 16 * batch_size);
+    c2_2 = alloc_layer(128 * 16 * 16 * batch_size);
+    p2   = alloc_layer(128 * 8 * 8 * batch_size);
+    c3_1 = alloc_layer(256 * 8 * 8 * batch_size);
+    c3_2 = alloc_layer(256 * 8 * 8 * batch_size);
+    c3_3 = alloc_layer(256 * 8 * 8 * batch_size);
+    p3   = alloc_layer(256 * 4 * 4 * batch_size);
+    c4_1 = alloc_layer(512 * 4 * 4 * batch_size);
+    c4_2 = alloc_layer(512 * 4 * 4 * batch_size);
+    c4_3 = alloc_layer(512 * 4 * 4 * batch_size);
+    p4   = alloc_layer(512 * 2 * 2 * batch_size);
+    c5_1 = alloc_layer(512 * 2 * 2 * batch_size);
+    c5_2 = alloc_layer(512 * 2 * 2 * batch_size);
+    c5_3 = alloc_layer(512 * 2 * 2 * batch_size);
+    p5   = alloc_layer(512 * 1 * 1 * batch_size);
+    fc1  = alloc_layer(512 * batch_size);
+    fc2  = alloc_layer(512 * batch_size);
+    fc3  = alloc_layer(10 * batch_size);
 
 	clock_t start;
 
     // run network
-    for(int i = 0; i < num_images; ++i)
+    for(int i = 0; i < num_images; i+= batch_size)
     {
         float *image = images + i * 3 * 32 * 32;
 
