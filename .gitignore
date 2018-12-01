@@ -5,4 +5,6 @@ x64/
 x86/
 result.out
 cifar*
+multicore_cnn/multicore_cnn.vcxproj.user
+multicore_cnn/network.bin
 patch.diff
