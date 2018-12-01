@@ -5,3 +5,4 @@ x64/
 x86/
 result.out
 cifar*
+patch.diff
