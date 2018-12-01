@@ -11,6 +11,8 @@ clock_t fc_clock = 0;
 clock_t softmax_clock = 0;
 clock_t find_max_clock = 0;
 
+extern const char *CLASS_NAME[];
+
 static void pooling2x2(float *input, float *output, int N) {
     int i, j, k, l;
     for (i = 0; i < N; i++) {
@@ -260,6 +262,8 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
         labels[i] = find_max(fc3, 10);
         confidences[i] = fc3[labels[i]];
 		find_max_clock += clock() - start;
+
+		fprintf(stdout, "Image %04d/%04d: %s %f\n", i + 1, num_images, CLASS_NAME[labels[i]], confidences[i]);
     }
 
     free(c1_1); free(c1_2); free(p1);
