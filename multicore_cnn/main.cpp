@@ -3,8 +3,8 @@
 
 int compare_result(int argc, char **argv);
 
-extern clock_t pooling_clock, conv_clock, fc_clock, softmax_clock, find_max_clock;
-extern long long write_nsec, read_nsec;
+extern clock_t pooling_clock, conv_clock, fc_clock, softmax_clock, find_max_clock, RELU_clock;
+extern long long write_nsec, kernel_nsec;
 extern const char *CLASS_NAME[];
 
 int main(int argc, char **argv)
@@ -45,11 +45,12 @@ int main(int argc, char **argv)
 
 	printf("pooling  : %lf sec \n", (double)pooling_clock / CLOCKS_PER_SEC);
 	printf("conv     : %lf sec \n", (double)conv_clock / CLOCKS_PER_SEC);
+	printf("- find_max : %lf sec \n", (double)find_max_clock / CLOCKS_PER_SEC);
+	printf("- write    : %lf sec \n", write_nsec / 1000000000.0);
+	printf("- kernel   : %lf sec \n", kernel_nsec / 1000000000.0);
+	printf("- RELU     : %lf sec \n", (double)RELU_clock / CLOCKS_PER_SEC);
 	printf("fc       : %lf sec \n", (double)fc_clock / CLOCKS_PER_SEC);
 	printf("softmax  : %lf sec \n", (double)softmax_clock / CLOCKS_PER_SEC);
-	printf("find_max : %lf sec \n", (double)find_max_clock / CLOCKS_PER_SEC);
-	printf("write_sec : %lf sec \n", write_nsec / 1000000000.0);
-	printf("read_sec : %lf sec \n", read_nsec / 1000000000.0);
 
 	char* params[] = { "", "result.out", "seq.out", NULL };
 	compare_result(3, params);

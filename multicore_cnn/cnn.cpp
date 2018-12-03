@@ -10,11 +10,7 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 
 extern const char* CLASS_NAME[];
 
-clock_t pooling_clock = 0;
-clock_t conv_clock = 0;
-clock_t fc_clock = 0;
-clock_t softmax_clock = 0;
-clock_t find_max_clock = 0;
+clock_t pooling_clock, conv_clock, fc_clock, softmax_clock, find_max_clock, RELU_clock;
 
 static void pooling2x2(float *input, float *output, int N) {
     int i, j, k, l;
@@ -57,6 +53,7 @@ void pooling_layer(float *inputs, float *outputs, int D, int N) {
 void convolution_layer(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
 	clConv(inputs, outputs, filters, D2, D1, N);
 
+	clock_t start = clock();
     for (int out_channel = 0; out_channel < D2; out_channel++) {
         float * output = outputs + N * N * out_channel;
         float bias = biases[out_channel];
@@ -64,6 +61,7 @@ void convolution_layer(float *inputs, float *outputs, float *filters, float *bia
             output[i] = ReLU(output[i] + bias);
         }
     }
+	RELU_clock += clock() - start;
 }
 
 /*
@@ -116,7 +114,7 @@ float* alloc_layer(size_t n) {
 
 void cnn_init() {
 	int platform_idx = 0;
-	int gpu_idx = 1;
+	int gpu_idx = 0;
 	initOpenCL(platform_idx, gpu_idx);
 }
 

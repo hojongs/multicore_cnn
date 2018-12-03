@@ -257,7 +257,7 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 	return device;
 }
 
-long long write_nsec, read_nsec;
+long long write_nsec, kernel_nsec;
 
 void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N)
 {
@@ -295,10 +295,11 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	const size_t global_work_size[] = { D2*N*N };
 	const size_t local_work_size[] = { 256 };
 
+	cl_event kernel_event;
 	err = clEnqueueNDRangeKernel(
 		kernel_queue, convKernel, work_dim, NULL,
 		global_work_size, local_work_size,
-		0, NULL, NULL);
+		0, NULL, &kernel_event);
 	CHECK_ERROR(err);
 
 	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, outputs_size, outputs,
@@ -309,6 +310,10 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	clGetEventProfilingInfo(write_first, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(write_last, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
 	write_nsec += end - start;
+
+	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+	kernel_nsec += end - start;
 
 	clReleaseMemObject(bufInputs);
 	clReleaseMemObject(bufFilters);
