@@ -1,7 +1,5 @@
 #pragma warning(disable:4996)
-#include <stdio.h>
-#include <stdlib.h>
-#include <CL/cl.h>
+#include "cnn.h"
 #define CHECK_ERROR(err) \
   if (err != CL_SUCCESS) { \
     printf("[%s:%d] OpenCL error %d %s\n", __FILE__, __LINE__, err, getErrorString(err)); \
@@ -257,12 +255,18 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 	return device;
 }
 
-long long write_nsec, kernel_nsec;
+double before_kernel_sec, profile_sec;
+long long write_nsec, kernel_nsec, read_nsec;
 
 void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N)
 {
 	cl_int err;
-
+	high_resolution_clock::time_point t1, t2;
+	duration<double> time_span;
+	
+#ifdef PROFILE_ENABLE
+	t1 = high_resolution_clock::now();
+#endif
 	const int inputs_size = sizeof(float) * D1*N*N;
 	const int filters_size = sizeof(float) * 3 * 3 * D2 * D1;
 	const int outputs_size = sizeof(float) * D2*N*N;
@@ -295,6 +299,12 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	const size_t global_work_size[] = { D2*N*N };
 	const size_t local_work_size[] = { 256 };
 
+#ifdef PROFILE_ENABLE
+	t2 = high_resolution_clock::now();
+	time_span = duration_cast<duration<double>>(t2 - t1);
+	before_kernel_sec += time_span.count();
+#endif
+
 	cl_event kernel_event;
 	err = clEnqueueNDRangeKernel(
 		kernel_queue, convKernel, work_dim, NULL,
@@ -302,22 +312,35 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 		0, NULL, &kernel_event);
 	CHECK_ERROR(err);
 
+	cl_event read_event;
 	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, outputs_size, outputs,
-		0, NULL, NULL);
+		0, NULL, &read_event);
 	CHECK_ERROR(err);
-
-	cl_ulong start, end;
-	clGetEventProfilingInfo(write_first, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-	clGetEventProfilingInfo(write_last, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-	write_nsec += end - start;
-
-	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-	kernel_nsec += end - start;
 
 	clReleaseMemObject(bufInputs);
 	clReleaseMemObject(bufFilters);
 	clReleaseMemObject(bufOutputs);
+
+#ifdef PROFILE_ENABLE
+	t1 = high_resolution_clock::now();
+
+	cl_ulong start_nsec, end_nsec;
+	clGetEventProfilingInfo(write_first, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+	clGetEventProfilingInfo(write_last, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+	write_nsec += end_nsec - start_nsec;
+
+	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+	kernel_nsec += end_nsec - start_nsec;
+
+	clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+	clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+	read_nsec += end_nsec - start_nsec;
+
+	t2 = high_resolution_clock::now();
+	time_span = duration_cast<duration<double>>(t2 - t1);
+	profile_sec += time_span.count();
+#endif
 }
 
 void initOpenCL(int platform_idx, int gpu_idx)

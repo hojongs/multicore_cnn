@@ -2,11 +2,16 @@
 #define _CNN_H
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
+#include <math.h>
+#include <string.h>
+#include <chrono>
+#include <CL/cl.h>
+//#define PROFILE_ENABLE
+
+using namespace std::chrono;
 
 void cnn_init();
 void cnn(float *images, float **network, int *labels, float *confidences, int num_images);
-void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N, int batch_size);
 
 void print_usage_and_exit(char **argv);
 void* read_bytes(const char *fn, size_t n);
