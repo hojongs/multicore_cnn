@@ -1,7 +1,6 @@
 #pragma warning(disable:4996)
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <CL/cl.h>
 #define CHECK_ERROR(err) \
   if (err != CL_SUCCESS) { \
@@ -148,7 +147,7 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 {
 	char str[STR_LEN] = { 0 };
 	cl_int err;
-	cl_device_id device = NULL;
+	cl_device_id device;
 
 	cl_uint num_platforms;
 	err = clGetPlatformIDs(0, NULL, &num_platforms);
@@ -258,28 +257,28 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 	return device;
 }
 
-long long write_nsec = 0, read_nsec = 0;
+long long write_nsec, read_nsec;
 
-void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N, int batch_size)
+void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N)
 {
 	cl_int err;
 
-	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * D1*N*N*batch_size, NULL, &err);
+	const int inputs_size = sizeof(float) * D1*N*N;
+	const int filters_size = sizeof(float) * 3 * 3 * D2 * D1;
+	const int outputs_size = sizeof(float) * D2*N*N;
+	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * 3 * 3 * (D2 * D1 + D1), NULL, &err);
+	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, filters_size, NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * D2*N*N*batch_size, NULL, &err);
+	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputs_size, NULL, &err);
 	CHECK_ERROR(err);
 
-	size_t offset = 0;
-	int num_events = 0;
-	cl_event write_event[3] = { 0 };
-	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, offset, sizeof(float) * D1*N*N*batch_size, inputs, num_events, NULL, &write_event[0]);
-	CHECK_ERROR(err);
-	err = clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, offset, sizeof(float) * 3 * 3 * (D2 * D1 + D1), filters, num_events, NULL, &write_event[1]);
-	CHECK_ERROR(err);
-	err = clEnqueueWriteBuffer(kernel_queue, bufOutputs, CL_FALSE, offset, sizeof(float) * D2*N*N*batch_size, outputs, num_events, NULL, &write_event[2]);
-	CHECK_ERROR(err);
+	const float pattern = 0;
+	cl_event write_first, write_last;
+	
+	clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_first);
+	clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, 0, filters_size, filters, 0, NULL, NULL);
+	clEnqueueFillBuffer(kernel_queue, bufOutputs, &pattern, sizeof(float), 0, outputs_size, 0, NULL, &write_last);
 
 	err = clSetKernelArg(convKernel, 0, sizeof(cl_mem), &bufInputs);
 	CHECK_ERROR(err);
@@ -289,63 +288,31 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	CHECK_ERROR(err);
 	err = clSetKernelArg(convKernel, 3, sizeof(cl_int), &D1);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &D2);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &N);
+	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &N);
 	CHECK_ERROR(err);
 
-	int work_dim = 3;
-	int work_group_size = 256;
-	const size_t global_work_size[] = { D2, N*N, batch_size };
-	size_t local_work_size[] = { 1, 1, 1 };
-	if (D2 < work_group_size)
-	{
-		local_work_size[0] = D2;
-		local_work_size[1] = work_group_size / D2;
-	}
-	else
-	{
-		local_work_size[0] = work_group_size;
-	}
+	int work_dim = 1;
+	const size_t global_work_size[] = { D2*N*N };
+	const size_t local_work_size[] = { 256 };
 
-	// TODO understand mechanism to put in_channel into kernel
-	for (int in_channel = 0; in_channel < D1; in_channel++)
-	{
-		err = clSetKernelArg(convKernel, 6, sizeof(cl_int), &in_channel);
-		CHECK_ERROR(err);
-		err = clEnqueueNDRangeKernel(
-			kernel_queue, convKernel, work_dim, NULL,
-			global_work_size, local_work_size,
-			0, NULL, NULL);
-		CHECK_ERROR(err);
-	}
-
-	cl_event read_event;
-	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, sizeof(float)*D2*N*N*batch_size, outputs,
-		0, NULL, &read_event);
+	err = clEnqueueNDRangeKernel(
+		kernel_queue, convKernel, work_dim, NULL,
+		global_work_size, local_work_size,
+		0, NULL, NULL);
 	CHECK_ERROR(err);
+
+	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, outputs_size, outputs,
+		0, NULL, NULL);
+	CHECK_ERROR(err);
+
+	cl_ulong start, end;
+	clGetEventProfilingInfo(write_first, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+	clGetEventProfilingInfo(write_last, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+	write_nsec += end - start;
 
 	clReleaseMemObject(bufInputs);
 	clReleaseMemObject(bufFilters);
 	clReleaseMemObject(bufOutputs);
-
-	cl_ulong start, end;
-	for (int i = 0; i < 3; i++)
-	{
-		err = clGetEventProfilingInfo(write_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-		CHECK_ERROR(err);
-		err = clGetEventProfilingInfo(write_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-		CHECK_ERROR(err);
-
-		write_nsec += end - start;
-	}
-
-	err = clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-	CHECK_ERROR(err);
-	err = clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-	CHECK_ERROR(err);
-
-	read_nsec += end - start;
 }
 
 void initOpenCL(int platform_idx, int gpu_idx)
@@ -367,6 +334,4 @@ void initOpenCL(int platform_idx, int gpu_idx)
 	CHECK_ERROR(err);
 
 	convKernel = getKernel(context, device, "kernel.cl", "conv");
-	
-	printf("********** platform=%d, dev=%d ********** \n", platform_idx, gpu_idx);
 }

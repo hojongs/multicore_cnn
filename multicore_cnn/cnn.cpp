@@ -6,6 +6,7 @@
 #include "cnn.h"
 
 void initOpenCL(int platform_idx, int gpu_idx);
+void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N);
 
 extern const char* CLASS_NAME[];
 
@@ -15,7 +16,7 @@ clock_t fc_clock = 0;
 clock_t softmax_clock = 0;
 clock_t find_max_clock = 0;
 
-void pooling2x2(float *input, float *output, int N) {
+static void pooling2x2(float *input, float *output, int N) {
     int i, j, k, l;
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
@@ -36,8 +37,7 @@ void pooling2x2(float *input, float *output, int N) {
  * N = width and height of an output image
  * Thus, input is (D, N * 2, N * 2) and output is (D, N, N).
  */
-void pooling_layer(float *inputs, float *outputs, int D, int N)
-{
+void pooling_layer(float *inputs, float *outputs, int D, int N) {
 	int i;
     for (i = 0; i < D; i++) {
         float * input = inputs + i * N * N * 4;
@@ -54,28 +54,26 @@ void pooling_layer(float *inputs, float *outputs, int D, int N)
  * Thus, input is (D1, N, N) and output is (D2, N, N)
  */
 #define ReLU(x) (((x)>0)?(x):0)
-void convolution_layer(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N, int batch_size)
-{
-    memset(outputs, 0, sizeof(float) * N * N * D2 * batch_size);
-	clConv(inputs, outputs, filters, D2, D1, N, batch_size);
+void convolution_layer(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N) {
+	int in_channel, out_channel;
 
-	for (int batch = 0; batch < batch_size; batch++)
-	{
-		for (int out_channel = 0; out_channel < D2; out_channel++) {
-			float * output = outputs + (N*N*D2*batch) + (N*N*out_channel);
-			float bias = biases[out_channel];
-			for (int i = 0; i < N * N; i++) {
-				output[i] = ReLU(output[i] + bias);
-			}
-		}
-	}
+    memset(outputs, 0, sizeof(float) * N * N * D2);
+	clConv(inputs, outputs, filters, D2, D1, N);
+
+    for (in_channel = 0; in_channel < D2; in_channel++) {
+        float * output = outputs + N * N * in_channel;
+        float bias = biases[in_channel];
+        for (out_channel = 0; out_channel < N * N; out_channel++) {
+            output[out_channel] = ReLU(output[out_channel] + bias);
+        }
+    }
 }
 
 /*
  * M = output size
  * N = input size
  */
-void fc_layer(float *input_neuron, float *output_neuron, float *weights, float *biases, int M, int N) {
+static void fc_layer(float *input_neuron, float *output_neuron, float *weights, float *biases, int M, int N) {
 	int i, j;
     for (j = 0; j < M; j++) {
         float sum = 0;
@@ -87,7 +85,7 @@ void fc_layer(float *input_neuron, float *output_neuron, float *weights, float *
     }
 }
 
-void softmax(float *output, int N) {
+static void softmax(float *output, int N) {
     int i;
     float max = output[0];
     for (i = 1; i < N; i++) {
@@ -102,7 +100,7 @@ void softmax(float *output, int N) {
     }
 }
 
-int find_max(float *fc, int N) {
+static int find_max(float *fc, int N) {
     int i;
     int maxid = 0;
     float maxval = 0;
@@ -115,8 +113,7 @@ int find_max(float *fc, int N) {
     return maxid;
 }
 
-float* alloc_layer(size_t n)
-{
+float* alloc_layer(size_t n) {
     return (float*)malloc(n * sizeof(float));
 }
 
@@ -127,8 +124,6 @@ void cnn_init() {
 }
 
 void cnn(float *images, float **network, int *labels, float *confidences, int num_images) {
-	int batch_size = 256;
-
     // slice the network into weights and biases
     float *w1_1, *b1_1, *w1_2, *b1_2;
     float *w2_1, *b2_1, *w2_2, *b2_2;
@@ -136,6 +131,7 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
     float *w4_1, *b4_1, *w4_2, *b4_2, *w4_3, *b4_3;
     float *w5_1, *b5_1, *w5_2, *b5_2, *w5_3, *b5_3;
     float *w1, *b1, *w2, *b2, *w3, *b3;
+	// TODO alloc weight, bias on gpu mem
     w1_1 = network[0]; b1_1 = network[1];
     w1_2 = network[2]; b1_2 = network[3];
     w2_1 = network[4]; b2_1 = network[5];
@@ -160,130 +156,100 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
     float *c4_1, *c4_2, *c4_3, *p4;
     float *c5_1, *c5_2, *c5_3, *p5;
     float *fc1, *fc2, *fc3;
-    c1_1 = alloc_layer(64 * 32 * 32 * batch_size);
-    c1_2 = alloc_layer(64 * 32 * 32 * batch_size);
-    p1   = alloc_layer(64 * 16 * 16 * batch_size);
-    c2_1 = alloc_layer(128 * 16 * 16 * batch_size);
-    c2_2 = alloc_layer(128 * 16 * 16 * batch_size);
-    p2   = alloc_layer(128 * 8 * 8 * batch_size);
-    c3_1 = alloc_layer(256 * 8 * 8 * batch_size);
-    c3_2 = alloc_layer(256 * 8 * 8 * batch_size);
-    c3_3 = alloc_layer(256 * 8 * 8 * batch_size);
-    p3   = alloc_layer(256 * 4 * 4 * batch_size);
-    c4_1 = alloc_layer(512 * 4 * 4 * batch_size);
-    c4_2 = alloc_layer(512 * 4 * 4 * batch_size);
-    c4_3 = alloc_layer(512 * 4 * 4 * batch_size);
-    p4   = alloc_layer(512 * 2 * 2 * batch_size);
-    c5_1 = alloc_layer(512 * 2 * 2 * batch_size);
-    c5_2 = alloc_layer(512 * 2 * 2 * batch_size);
-    c5_3 = alloc_layer(512 * 2 * 2 * batch_size);
-    p5   = alloc_layer(512 * 1 * 1 * batch_size);
-    fc1  = alloc_layer(512 * batch_size);
-    fc2  = alloc_layer(512 * batch_size);
-    fc3  = alloc_layer(10 * batch_size);
+	// TODO alloc images on gpu mem
+	// TODO alloc layer on gpu mem
+    c1_1 = alloc_layer(64 * 32 * 32);
+    c1_2 = alloc_layer(64 * 32 * 32);
+    p1   = alloc_layer(64 * 16 * 16);
+    c2_1 = alloc_layer(128 * 16 * 16);
+    c2_2 = alloc_layer(128 * 16 * 16);
+    p2   = alloc_layer(128 * 8 * 8);
+    c3_1 = alloc_layer(256 * 8 * 8);
+    c3_2 = alloc_layer(256 * 8 * 8);
+    c3_3 = alloc_layer(256 * 8 * 8);
+    p3   = alloc_layer(256 * 4 * 4);
+    c4_1 = alloc_layer(512 * 4 * 4);
+    c4_2 = alloc_layer(512 * 4 * 4);
+    c4_3 = alloc_layer(512 * 4 * 4);
+    p4   = alloc_layer(512 * 2 * 2);
+    c5_1 = alloc_layer(512 * 2 * 2);
+    c5_2 = alloc_layer(512 * 2 * 2);
+    c5_3 = alloc_layer(512 * 2 * 2);
+    p5   = alloc_layer(512 * 1 * 1);
+    fc1  = alloc_layer(512);
+    fc2  = alloc_layer(512);
+    fc3  = alloc_layer(10);
 
 	clock_t start;
 
     // run network
-    for(int i = 0; i < num_images; i+= batch_size)
+    for(int i = 0; i < num_images; ++i)
     {
         float *image = images + i * 3 * 32 * 32;
 
-		int exceed_num = (i + batch_size) - num_images;
-		if (exceed_num > 0)
-		{
-			batch_size -= exceed_num;
-			printf("batch_size reduced (%d) \n", batch_size);
-		}
-
 		start = clock();
-        convolution_layer(image, c1_1, w1_1, b1_1, 64, 3, 32, batch_size);
-        convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32, batch_size);
+		// TODO pass i instead of pointer (and calc offset)
+        convolution_layer(image, c1_1, w1_1, b1_1, 64, 3, 32);
+        convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32);
 		conv_clock += clock() - start;
 		start = clock();
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			pooling_layer(c1_2 + 64 * 32 * 32*batch, p1 + 64 * 16 * 16*batch, 64, 16);
-		}
+		pooling_layer(c1_2, p1, 64, 16);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		convolution_layer(p1, c2_1, w2_1, b2_1, 128, 64, 16, batch_size);
-        convolution_layer(c2_1, c2_2, w2_2, b2_2, 128, 128, 16, batch_size);
+		convolution_layer(p1, c2_1, w2_1, b2_1, 128, 64, 16);
+        convolution_layer(c2_1, c2_2, w2_2, b2_2, 128, 128, 16);
 		conv_clock += clock() - start;
 		start = clock();
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			pooling_layer(c2_2 + 128 * 16 * 16*batch, p2 + 128 * 8 * 8*batch, 128, 8);
-		}
+		pooling_layer(c2_2, p2, 128, 8);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		convolution_layer(p2, c3_1, w3_1, b3_1, 256, 128, 8, batch_size);
-        convolution_layer(c3_1, c3_2, w3_2, b3_2, 256, 256, 8, batch_size);
-        convolution_layer(c3_2, c3_3, w3_3, b3_3, 256, 256, 8, batch_size);
+		convolution_layer(p2, c3_1, w3_1, b3_1, 256, 128, 8);
+        convolution_layer(c3_1, c3_2, w3_2, b3_2, 256, 256, 8);
+        convolution_layer(c3_2, c3_3, w3_3, b3_3, 256, 256, 8);
 		conv_clock += clock() - start;
 		start = clock();
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			pooling_layer(c3_3 + 256 * 8 * 8*batch, p3 + 256 * 4 * 4*batch, 256, 4);
-		}
+		pooling_layer(c3_3, p3, 256, 4);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		convolution_layer(p3, c4_1, w4_1, b4_1, 512, 256, 4, batch_size);
-        convolution_layer(c4_1, c4_2, w4_2, b4_2, 512, 512, 4, batch_size);
-        convolution_layer(c4_2, c4_3, w4_3, b4_3, 512, 512, 4, batch_size);
+		convolution_layer(p3, c4_1, w4_1, b4_1, 512, 256, 4);
+        convolution_layer(c4_1, c4_2, w4_2, b4_2, 512, 512, 4);
+        convolution_layer(c4_2, c4_3, w4_3, b4_3, 512, 512, 4);
 		conv_clock += clock() - start;
 		start = clock();
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			pooling_layer(c4_3 + 512 * 4 * 4*batch, p4 + 512 * 2 * 2*batch, 512, 2);
-		}
+		pooling_layer(c4_3, p4, 512, 2);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		convolution_layer(p4, c5_1, w5_1, b5_1, 512, 512, 2, batch_size);
-        convolution_layer(c5_1, c5_2, w5_2, b5_2, 512, 512, 2, batch_size);
-        convolution_layer(c5_2, c5_3, w5_3, b5_3, 512, 512, 2, batch_size);
+		convolution_layer(p4, c5_1, w5_1, b5_1, 512, 512, 2);
+        convolution_layer(c5_1, c5_2, w5_2, b5_2, 512, 512, 2);
+        convolution_layer(c5_2, c5_3, w5_3, b5_3, 512, 512, 2);
 		conv_clock += clock() - start;
 		start = clock();
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			pooling_layer(c5_3 + 512 * 2 * 2*batch, p5 + 512 * 1 * 1*batch, 512, 1);
-		}
+		pooling_layer(c5_3, p5, 512, 1);
 		pooling_clock += clock() - start;
 
 		start = clock();
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			fc_layer(p5 + 512 * 1 * 1*batch, fc1 + 512*batch, w1, b1, 512, 512);
-			fc_layer(fc1 + 512 * batch, fc2 + 512 * batch, w2, b2, 512, 512);
-			fc_layer(fc2 + 512 * batch, fc3 + 10 * batch, w3, b3, 10, 512);
-		}
+		fc_layer(p5, fc1, w1, b1, 512, 512);
+        fc_layer(fc1, fc2, w2, b2, 512, 512);
+        fc_layer(fc2, fc3, w3, b3, 10, 512);
 		fc_clock += clock() - start;
 
 		start = clock();
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			softmax(fc3 + 10 * batch, 10);
-		}
+		softmax(fc3, 10);
 		softmax_clock += clock() - start;
 
 		start = clock();
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			labels[i+batch] = find_max(fc3+10*batch, 10);
-			confidences[i+batch] = (fc3+10*batch)[labels[i+batch]];
-		}
+        labels[i] = find_max(fc3, 10);
+        confidences[i] = fc3[labels[i]];
 		find_max_clock += clock() - start;
 
-		for (int batch = 0; batch < batch_size; batch++)
-		{
-			fprintf(stdout, "Image %04d/%04d: %s %f\n", i+batch + 1, num_images, CLASS_NAME[labels[i + batch]], confidences[i + batch]);
-		}
+		fprintf(stdout, "Image %04d/%04d: %s %f\n", i+1, num_images, CLASS_NAME[labels[i]], confidences[i]);
     }
 
+	// TODO ReleaseMemObject
     free(c1_1); free(c1_2); free(p1);
     free(c2_1); free(c2_2); free(p2);
     free(c3_1); free(c3_2); free(c3_3); free(p3);
