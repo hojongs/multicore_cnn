@@ -247,9 +247,9 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
 		t2 = high_resolution_clock::now();
 		time_span = duration_cast<duration<double>>(t2 - t1);
 		find_max_sec += time_span.count();
-#endif
 
-		fprintf(stdout, "Image %04d/%04d: %s %f\n", i+1, num_images, CLASS_NAME[labels[i]], confidences[i]);
+		fprintf(stdout, "Image %04d/%04d: %s %f\n", i + 1, num_images, CLASS_NAME[labels[i]], confidences[i]);
+#endif
     }
 
     free(c1_1); free(c1_2); free(p1);

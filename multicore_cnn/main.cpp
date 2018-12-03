@@ -21,6 +21,7 @@ int main(int argc, char **argv)
     float *confidences = (float*)calloc(num_images, sizeof(float));
 
     cnn_init();
+	printf("num_images : %d \n", num_images);
     clock_t start = clock();
     cnn(images, network_sliced, labels, confidences, num_images);
 	clock_t end = clock();
@@ -36,6 +37,9 @@ int main(int argc, char **argv)
     fprintf(of, "Accuracy: %f\n", acc / num_images);
     fclose(of);
 
+	char* params[] = { "", "result.out", "seq.out", NULL };
+	compare_result(3, params);
+
     free(images);
     free(network);
     free(network_sliced);
@@ -43,6 +47,7 @@ int main(int argc, char **argv)
     free(confidences);
     free(labels_ans);
 
+#ifdef PROFILE_ENABLE
 	printf("pooling  : %lf sec \n", (double)pooling_sec / CLOCKS_PER_SEC);
 	printf("conv     : %lf sec \n", (double)conv_sec / CLOCKS_PER_SEC);
 	printf("- before kernel : %lf sec \n", before_kernel_sec);
@@ -54,9 +59,7 @@ int main(int argc, char **argv)
 	printf("fc       : %lf sec \n", (double)fc_sec / CLOCKS_PER_SEC);
 	printf("softmax  : %lf sec \n", (double)softmax_sec / CLOCKS_PER_SEC);
 	printf("find_max : %lf sec \n", (double)find_max_sec / CLOCKS_PER_SEC);
-
-	char* params[] = { "", "result.out", "seq.out", NULL };
-	compare_result(3, params);
+#endif
 
     return 0;
 }
