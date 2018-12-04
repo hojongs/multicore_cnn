@@ -4,15 +4,17 @@ __kernel void conv(
 		__global float* outputs,
 		int D1,
 		int D2,
-		int N
+		int N,
+		__local float* l_filter
 	) 
 {
-	int out_channel = get_global_id(0) / (N*N);
-	int remain = get_global_id(0) % (N*N);
+	int out_channel = get_global_id(0);
+	int batch = get_global_id(1) / (N*N);
+	int remain = get_global_id(1) % (N*N);
 	int i = remain / N;
 	int j = remain % N;
-	int batch = get_global_id(1);
-	
+	int lid = get_local_id(1);
+
     __global float* output = outputs + N * N * (D2*batch + out_channel);
 
 	float sum = 0;
@@ -20,6 +22,9 @@ __kernel void conv(
     {
 		__global float* input = inputs + N * N * (D1*batch + in_channel);
 		__global float* filter = filters + 3 * 3 * (out_channel * D1 + in_channel);
+		if (lid < 3*3)
+			l_filter[lid] = filter[lid];
+		barrier(CLK_LOCAL_MEM_FENCE);
 
 		for (int k = 0; k < 3; k++) {
 			for (int l = 0; l < 3; l++) {
@@ -30,5 +35,5 @@ __kernel void conv(
 			}
 		}
 	}
-	output[i * N + j] += sum;
+	output[i * N + j] = sum;
 }
