@@ -37,9 +37,6 @@ int main(int argc, char **argv)
     fprintf(of, "Accuracy: %f\n", acc / num_images);
     fclose(of);
 
-	char* params[] = { "", "result.out", "seq.out", NULL };
-	compare_result(3, params);
-
     free(images);
     free(network);
     free(network_sliced);
@@ -60,6 +57,9 @@ int main(int argc, char **argv)
 	printf("softmax  : %lf sec \n", (double)softmax_sec / CLOCKS_PER_SEC);
 	printf("find_max : %lf sec \n", (double)find_max_sec / CLOCKS_PER_SEC);
 #endif
+
+	char* params[] = { "", "result.out", "seq.out", NULL };
+	compare_result(3, params);
 
     return 0;
 }

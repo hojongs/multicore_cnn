@@ -56,7 +56,7 @@ static void convolution_layer_seq(float *inputs, float *outputs, float *filters,
 
 int main()
 {
-	int batch_size = 16;
+	int batch_size = 256;
 	clock_t start, end;
 
 	int num_images = batch_size;
@@ -78,6 +78,30 @@ int main()
 
 	float* clOut = alloc_layer(64 * 32 * 32 * batch_size);
 	float* seqOut = alloc_layer(64 * 32 * 32 * batch_size);
+
+	// conv test
+
+	convolution_layer(images, c1_1, w1_1, b1_1, 64, 3, 32, batch_size);
+	memcpy(clOut, c1_1, sizeof(float) * 64 * 32 * 32 * batch_size);
+
+	for (int batch = 0; batch < batch_size; batch++)
+	{
+		float* image = images + batch * 3 * 32 * 32;
+		convolution_layer_seq(image, c1_1, w1_1, b1_1, 64, 3, 32);
+		memcpy(seqOut + batch * 64 * 32 * 32, c1_1, sizeof(float) * 64 * 32 * 32);
+	}
+
+	if (memcmp(clOut, seqOut, sizeof(float) * 64 * 32 * 32 * batch_size) == 0)
+	{
+		printf("result same \n");
+	}
+	else
+	{
+		printf("result difference \n");
+		return -1;
+	}
+
+	// conv+pooling test
 
 	start = clock();
 	convolution_layer(images, c1_1, w1_1, b1_1, 64, 3, 32, batch_size);

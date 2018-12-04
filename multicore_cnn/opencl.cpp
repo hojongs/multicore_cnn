@@ -287,9 +287,9 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	const float pattern = 0;
 	cl_event write_first, write_last;
 	
-	clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_first);
+	clEnqueueFillBuffer(kernel_queue, bufOutputs, &pattern, sizeof(float), 0, outputs_size, 0, NULL, &write_first);
+	clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_last);
 	clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, 0, filters_size, filters, 0, NULL, NULL);
-	clEnqueueFillBuffer(kernel_queue, bufOutputs, &pattern, sizeof(float), 0, outputs_size, 0, NULL, &write_last);
 
 	err = clSetKernelArg(convKernel, 0, sizeof(cl_mem), &bufInputs);
 	CHECK_ERROR(err);
@@ -299,12 +299,14 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	CHECK_ERROR(err);
 	err = clSetKernelArg(convKernel, 3, sizeof(cl_int), &D1);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &N);
+	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &D2);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &N);
 	CHECK_ERROR(err);
 
-	int work_dim = 1;
-	const size_t global_work_size[] = { D2*N*N };
-	const size_t local_work_size[] = { 256 };
+	int work_dim = 2;
+	const size_t global_work_size[] = { D2*N*N, batch_size };
+	const size_t local_work_size[] = { 256, 1 };
 
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
