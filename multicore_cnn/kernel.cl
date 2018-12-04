@@ -19,9 +19,6 @@ __kernel void conv(
 	int j = remain % N;
 	int lid = get_local_id(1);
 
-	if (batch >= imageCnt)
-		return;
-
     __global float* output = outputs + N * N * (D2*batch + out_channel);
 
 	float sum = 0;
@@ -31,7 +28,10 @@ __kernel void conv(
 		__global float* filter = filters + 3 * 3 * (out_channel * D1 + in_channel);
 		//if (lid < 3*3)
 		//	l_filter[lid] = filter[lid];
-		//barrier(CLK_LOCAL_MEM_FENCE);
+		barrier(CLK_LOCAL_MEM_FENCE);
+
+		if (batch >= imageCnt)
+			continue;
 
 		for (int k = 0; k < 3; k++) {
 			for (int l = 0; l < 3; l++) {
@@ -42,6 +42,9 @@ __kernel void conv(
 			}
 		}
 	}
+	if (batch >= imageCnt)
+		return;
+
 	float bias = biases[out_channel];
 	output[i * N + j] = ReLU(sum + bias);
 }
