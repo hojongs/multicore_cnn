@@ -129,6 +129,7 @@ cl_kernel getKernel(cl_context context, cl_device_id device, const char* source_
 	free(source_code);
 
 	char option[1024] = { 0 };
+	//sprintf(option, R"(-g -s "C:\Users\hojong\Desktop\multicore_cnn\multicore_cnn\kernel.cl")");
 	sprintf(option, "");
 	err = clBuildProgram(program, 1, &device, option, NULL, NULL);
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, STR_LEN, str, NULL);
