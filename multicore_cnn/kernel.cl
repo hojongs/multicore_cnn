@@ -1,7 +1,10 @@
+#define ReLU(x) (((x)>0)?(x):0)
+
 __kernel void conv(
 		__global float* inputs,
 		__global float* filters,
 		__global float* outputs,
+		__global float* biases,
 		int D1,
 		int D2,
 		int N,
@@ -22,9 +25,9 @@ __kernel void conv(
     {
 		__global float* input = inputs + N * N * (D1*batch + in_channel);
 		__global float* filter = filters + 3 * 3 * (out_channel * D1 + in_channel);
-		if (lid < 3*3)
-			l_filter[lid] = filter[lid];
-		barrier(CLK_LOCAL_MEM_FENCE);
+		//if (lid < 3*3)
+		//	l_filter[lid] = filter[lid];
+		//barrier(CLK_LOCAL_MEM_FENCE);
 
 		for (int k = 0; k < 3; k++) {
 			for (int l = 0; l < 3; l++) {
@@ -35,5 +38,6 @@ __kernel void conv(
 			}
 		}
 	}
-	output[i * N + j] = sum;
+	float bias = biases[out_channel];
+	output[i * N + j] = ReLU(sum + bias);
 }

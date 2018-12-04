@@ -263,10 +263,38 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 	return device;
 }
 
+cl_mem alloc_weight(float* filters, int D2, int D1)
+{
+	cl_int err;
+
+	const int filters_size = sizeof(float) * 3 * 3 * D2 * D1;
+
+	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, filters_size, NULL, &err);
+	CHECK_ERROR(err);
+	err = clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, 0, filters_size, filters, 0, NULL, NULL);
+	CHECK_ERROR(err);
+
+	return bufFilters;
+}
+
+cl_mem alloc_bias(float* bias, int D2)
+{
+	cl_int err;
+
+	const int bias_size = sizeof(float) * D2;
+
+	cl_mem bufBias = clCreateBuffer(context, CL_MEM_READ_ONLY, bias_size, NULL, &err);
+	CHECK_ERROR(err);
+	err = clEnqueueWriteBuffer(kernel_queue, bufBias, CL_FALSE, 0, bias_size, bias, 0, NULL, NULL);
+	CHECK_ERROR(err);
+
+	return bufBias;
+}
+
 double before_kernel_sec, profile_sec;
 long long write_nsec, kernel_nsec, read_nsec;
 
-void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N, int batch_size)
+void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, int D2, int D1, int N, int batch_size)
 {
 	cl_int err;
 #ifdef PROFILE_ENABLE
@@ -276,20 +304,15 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	t1 = high_resolution_clock::now();
 #endif
 	const int inputs_size = sizeof(float) * D1*N*N * batch_size;
-	const int filters_size = sizeof(float) * 3 * 3 * D2 * D1;
 	const int outputs_size = sizeof(float) * D2*N*N * batch_size;
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
-	CHECK_ERROR(err);
-	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, filters_size, NULL, &err);
 	CHECK_ERROR(err);
 	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputs_size, NULL, &err);
 	CHECK_ERROR(err);
 
-	const float pattern = 0;
-	cl_event write_first, write_last;
-	
-	clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_first);
-	clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, 0, filters_size, filters, 0, NULL, &write_last);
+	cl_event write_event;
+	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_event);
+	CHECK_ERROR(err);
 
 	err = clSetKernelArg(convKernel, 0, sizeof(cl_mem), &bufInputs);
 	CHECK_ERROR(err);
@@ -297,13 +320,15 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	CHECK_ERROR(err);
 	err = clSetKernelArg(convKernel, 2, sizeof(cl_mem), &bufOutputs);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 3, sizeof(cl_int), &D1);
+	err = clSetKernelArg(convKernel, 3, sizeof(cl_mem), &bufBiases);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &D2);
+	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &D1);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &N);
+	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &D2);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 6, sizeof(cl_float)*3*3, NULL);
+	err = clSetKernelArg(convKernel, 6, sizeof(cl_int), &N);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 7, sizeof(cl_float)*3*3, NULL);
 	CHECK_ERROR(err);
 
 	int work_dim = 2;
@@ -328,16 +353,17 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 		0, NULL, &read_event);
 	CHECK_ERROR(err);
 
-	clReleaseMemObject(bufInputs);
-	clReleaseMemObject(bufFilters);
-	clReleaseMemObject(bufOutputs);
+	err = clReleaseMemObject(bufInputs);
+	CHECK_ERROR(err);
+	err = clReleaseMemObject(bufOutputs);
+	CHECK_ERROR(err);
 
 #ifdef PROFILE_ENABLE
 	t1 = high_resolution_clock::now();
 
 	cl_ulong start_nsec, end_nsec;
-	clGetEventProfilingInfo(write_first, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
-	clGetEventProfilingInfo(write_last, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+	clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+	clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
 	write_nsec += end_nsec - start_nsec;
 
 	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
