@@ -11,7 +11,7 @@
 using namespace std::chrono;
 
 void cnn_init();
-void cnn(float *images, float **network, int *labels, float *confidences, int num_images);
+void cnn(float *images, float **network, int *labels, float *confidences, int num_images, int batch_size);
 
 void print_usage_and_exit(char **argv);
 void* read_bytes(const char *fn, size_t n);

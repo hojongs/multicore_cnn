@@ -14,6 +14,13 @@ int main(int argc, char **argv)
     }
 
     int num_images = atoi(argv[1]);
+	printf("num_images : ");
+	scanf("%d", &num_images);
+
+	int batch_size = 256;
+	printf("batch_size : ");
+	scanf("%d", &batch_size);
+
     float *images = read_images(num_images);
     float *network = read_network();
     float **network_sliced = slice_network(network);
@@ -21,9 +28,8 @@ int main(int argc, char **argv)
     float *confidences = (float*)calloc(num_images, sizeof(float));
 
     cnn_init();
-	printf("num_images : %d \n", num_images);
     clock_t start = clock();
-    cnn(images, network_sliced, labels, confidences, num_images);
+    cnn(images, network_sliced, labels, confidences, num_images, batch_size);
 	clock_t end = clock();
     printf("Elapsed time: %f sec\n", (double)(end - start) / CLK_TCK);
 

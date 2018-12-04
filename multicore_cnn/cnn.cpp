@@ -164,7 +164,7 @@ void cnn_init() {
 	initOpenCL(platform_idx, gpu_idx);
 }
 
-void cnn(float *images, float **network, int *labels, float *confidences, int num_images) {
+void cnn(float *images, float **network, int *labels, float *confidences, int num_images, int batch_size) {
     // slice the network into weights and biases
     float *w1_1, *b1_1, *w1_2, *b1_2;
     float *w2_1, *b2_1, *w2_2, *b2_2;
@@ -188,10 +188,6 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
     w1 = network[26]; b1 = network[27];
     w2 = network[28]; b2 = network[29];
     w3 = network[30]; b3 = network[31];
-
-	// N*N*batch_size % 256 must be 0
-	// batch_size minimum must be 64
-	int batch_size = 256;
 
     // allocate memory for output of each layer
     float *c1_1, *c1_2, *p1;
