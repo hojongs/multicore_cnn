@@ -8,6 +8,7 @@ __kernel void conv(
 		int D1,
 		int D2,
 		int N,
+		int imageCnt,
 		__local float* l_filter
 	) 
 {
@@ -17,6 +18,9 @@ __kernel void conv(
 	int i = remain / N;
 	int j = remain % N;
 	int lid = get_local_id(1);
+
+	if (batch >= imageCnt)
+		return;
 
     __global float* output = outputs + N * N * (D2*batch + out_channel);
 
