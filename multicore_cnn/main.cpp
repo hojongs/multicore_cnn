@@ -51,17 +51,18 @@ int main(int argc, char **argv)
     free(labels_ans);
 
 #ifdef PROFILE_ENABLE
-	printf("pooling  : %lf sec \n", (double)pooling_sec / CLOCKS_PER_SEC);
-	printf("conv     : %lf sec \n", (double)conv_sec / CLOCKS_PER_SEC);
-	printf("- before kernel : %lf sec \n", before_kernel_sec);
-	printf("  - write         : %lf sec \n", write_nsec / 1000000000.0);
-	printf("- kernel        : %lf sec \n", kernel_nsec / 1000000000.0);
-	printf("- read          : %lf sec \n", read_nsec / 1000000000.0);
-	printf("- after kernel  : %lf sec \n", profile_sec);
-	printf("- RELU          : %lf sec \n", (double)RELU_sec / CLOCKS_PER_SEC);
-	printf("fc       : %lf sec \n", (double)fc_sec / CLOCKS_PER_SEC);
-	printf("softmax  : %lf sec \n", (double)softmax_sec / CLOCKS_PER_SEC);
-	printf("find_max : %lf sec \n", (double)find_max_sec / CLOCKS_PER_SEC);
+	printf("- loop : %lf sec \n", loop_sec);
+	printf("  - conv     : %lf sec \n", conv_sec);
+	printf("    - before kernel : %lf sec \n", before_kernel_sec);
+	printf("      - write       : %lf sec \n", write_nsec / 1000000000.0);
+	printf("    - kernel        : %lf sec \n", kernel_nsec / 1000000000.0);
+	printf("    - read          : %lf sec \n", read_nsec / 1000000000.0);
+	printf("    - cl profile    : %lf sec \n", profile_sec);
+	printf("    - RELU          : %lf sec \n", RELU_sec);
+	printf("  - pooling  : %lf sec \n", pooling_sec);
+	printf("  - fc       : %lf sec \n", fc_sec);
+	printf("  - softmax  : %lf sec \n", softmax_sec);
+	printf("  - find_max : %lf sec \n", find_max_sec);
 #endif
 
 	char* params[] = { "", "result.out", "seq.out", NULL };
