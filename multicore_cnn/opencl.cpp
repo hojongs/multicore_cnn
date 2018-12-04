@@ -265,18 +265,18 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 double before_kernel_sec, profile_sec;
 long long write_nsec, kernel_nsec, read_nsec;
 
-void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N)
+void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N, int batch_size)
 {
 	cl_int err;
+#ifdef PROFILE_ENABLE
 	high_resolution_clock::time_point t1, t2;
 	duration<double> time_span;
-	
-#ifdef PROFILE_ENABLE
+
 	t1 = high_resolution_clock::now();
 #endif
-	const int inputs_size = sizeof(float) * D1*N*N;
+	const int inputs_size = sizeof(float) * D1*N*N * batch_size;
 	const int filters_size = sizeof(float) * 3 * 3 * D2 * D1;
-	const int outputs_size = sizeof(float) * D2*N*N;
+	const int outputs_size = sizeof(float) * D2*N*N * batch_size;
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
 	CHECK_ERROR(err);
 	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, filters_size, NULL, &err);

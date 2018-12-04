@@ -80,10 +80,8 @@ int main()
 	float* seqOut = alloc_layer(64 * 32 * 32 * batch_size);
 
 	start = clock();
-	//convolution_layer(images, c1_1, w1_1, b1_1, 64, 3, 32, batch_size);
-	//convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32, batch_size);
-	convolution_layer(images, c1_1, w1_1, b1_1, 64, 3, 32);
-	convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32);
+	convolution_layer(images, c1_1, w1_1, b1_1, 64, 3, 32, batch_size);
+	convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32, batch_size);
 	for (int batch = 0; batch < batch_size; batch++)
 	{
 		pooling_layer(c1_2 + 64 * 32 * 32 * batch, p1 + 64 * 16 * 16 * batch, 64, 16);
