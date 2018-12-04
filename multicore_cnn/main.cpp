@@ -51,7 +51,6 @@ int main(int argc, char **argv)
     free(labels_ans);
 
 #ifdef PROFILE_ENABLE
-	printf("- loop : %lf sec \n", loop_sec);
 	printf("  - conv     : %lf sec \n", conv_sec);
 	printf("    - before kernel : %lf sec \n", before_kernel_sec);
 	printf("      - write       : %lf sec \n", write_nsec / 1000000000.0);
