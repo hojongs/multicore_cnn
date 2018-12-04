@@ -184,9 +184,6 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 		{
 			printf("device: %u\n", d);
 
-			if (p == platform_idx AND d == gpu_idx)
-				device = devices[d];
-
 			cl_device_type device_type;
 			err = clGetDeviceInfo(devices[d], CL_DEVICE_TYPE, sizeof(cl_device_type), &device_type, NULL);
 			CHECK_ERROR(err);
@@ -245,6 +242,16 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 			err = clGetDeviceInfo(devices[d], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &max_mem_alloc_size, NULL);
 			CHECK_ERROR(err);
 			printf("- CL_DEVICE_MAX_MEM_ALLOC_SIZE : %llu\n\n", local_mem_size);
+
+			if (p == platform_idx AND d == gpu_idx)
+			{
+				if (!(device_type & CL_DEVICE_TYPE_GPU))
+				{
+					fprintf(stderr, "selected device is not GPU, exit \n");
+					exit(1);
+				}
+				device = devices[d];
+			}
 		}
 		free(devices);
 		devices = NULL;

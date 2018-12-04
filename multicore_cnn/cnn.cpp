@@ -129,7 +129,7 @@ float* alloc_layer(size_t n) {
 
 void cnn_init() {
 	int platform_idx = 0;
-	int gpu_idx = 1;
+	int gpu_idx = 0;
 	initOpenCL(platform_idx, gpu_idx);
 }
 
