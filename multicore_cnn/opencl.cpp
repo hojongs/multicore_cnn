@@ -288,9 +288,8 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	const float pattern = 0;
 	cl_event write_first, write_last;
 	
-	clEnqueueFillBuffer(kernel_queue, bufOutputs, &pattern, sizeof(float), 0, outputs_size, 0, NULL, &write_first);
-	clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_last);
-	clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, 0, filters_size, filters, 0, NULL, NULL);
+	clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_first);
+	clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, 0, filters_size, filters, 0, NULL, &write_last);
 
 	err = clSetKernelArg(convKernel, 0, sizeof(cl_mem), &bufInputs);
 	CHECK_ERROR(err);
