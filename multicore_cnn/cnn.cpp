@@ -2,9 +2,7 @@
 
 extern const char* CLASS_NAME[];
 
-double pooling_sec, conv_sec, fc_sec, softmax_sec, find_max_sec, RELU_sec;
-static high_resolution_clock::time_point t1, t2;
-static duration<double> time_span;
+double pooling_sec, conv_sec, conv1_sec, conv2_sec, conv3_sec, conv4_sec, conv5_sec, fc_sec, softmax_sec, find_max_sec, RELU_sec;
 
 static void pooling2x2(float *input, float *output, int N) {
     int i, j, k, l;
@@ -29,6 +27,8 @@ static void pooling2x2(float *input, float *output, int N) {
  */
 void pooling_layer(float *inputs, float *outputs, int D, int N) {
 #ifdef PROFILE_ENABLE
+	high_resolution_clock::time_point t1, t2;
+	duration<double> time_span;
 	t1 = high_resolution_clock::now();
 #endif
 	for (int i = 0; i < D; i++) {
@@ -52,6 +52,8 @@ void pooling_layer(float *inputs, float *outputs, int D, int N) {
  */
 void convolution_layer(float *inputs, float *outputs, cl_mem filters, cl_mem biases, int D2, int D1, int N, int batch_size, int imageCnt) {
 #ifdef PROFILE_ENABLE
+	high_resolution_clock::time_point t1, t2;
+	duration<double> time_span;
 	t1 = high_resolution_clock::now();
 #endif
 	clConv(inputs, outputs, filters, biases, D2, D1, N, batch_size, imageCnt);
@@ -69,6 +71,8 @@ void convolution_layer(float *inputs, float *outputs, cl_mem filters, cl_mem bia
 #define ReLU(x) (((x)>0)?(x):0)
 static void fc_layer(float *input_neuron, float *output_neuron, float *weights, float *biases, int M, int N) {
 #ifdef PROFILE_ENABLE
+	high_resolution_clock::time_point t1, t2;
+	duration<double> time_span;
 	t1 = high_resolution_clock::now();
 #endif
 	int i, j;
@@ -89,6 +93,8 @@ static void fc_layer(float *input_neuron, float *output_neuron, float *weights, 
 
 static void softmax(float *output, int N) {
 #ifdef PROFILE_ENABLE
+	high_resolution_clock::time_point t1, t2;
+	duration<double> time_span;
 	t1 = high_resolution_clock::now();
 #endif
     int i;
@@ -112,6 +118,8 @@ static void softmax(float *output, int N) {
 
 static int find_max(float *fc, int N) {
 #ifdef PROFILE_ENABLE
+	high_resolution_clock::time_point t1, t2;
+	duration<double> time_span;
 	t1 = high_resolution_clock::now();
 #endif
     int i;
@@ -205,6 +213,9 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
     fc2  = alloc_layer(512 * batch_size);
     fc3  = alloc_layer(10 * batch_size);
 
+	high_resolution_clock::time_point t1, t2;
+	duration<double> time_span;
+
     // run network
     for(int i = 0; i < num_images; i+=batch_size)
     {
@@ -213,31 +224,71 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
 		if (num_images - i < batch_size)
 			imageCnt = num_images - i;
 
+#ifdef PROFILE_ENABLE
+		t1 = high_resolution_clock::now();
+#endif
 		convolution_layer(image, c1_1, w1_1, b1_1, 64, 3, 32, batch_size, imageCnt);
 		convolution_layer(c1_1, c1_2, w1_2, b1_2, 64, 64, 32, batch_size, imageCnt);
+#ifdef PROFILE_ENABLE
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		conv1_sec += time_span.count();
+#endif
 		for (int batch = 0; batch < imageCnt; batch++)
 			pooling_layer(c1_2 + 64 * 32 * 32 * batch, p1 + 64 * 16 * 16 * batch, 64, 16);
 
+#ifdef PROFILE_ENABLE
+		t1 = high_resolution_clock::now();
+#endif
 		convolution_layer(p1, c2_1, w2_1, b2_1, 128, 64, 16, batch_size, imageCnt);
 		convolution_layer(c2_1, c2_2, w2_2, b2_2, 128, 128, 16, batch_size, imageCnt);
+#ifdef PROFILE_ENABLE
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		conv2_sec += time_span.count();
+#endif
 		for (int batch = 0; batch < imageCnt; batch++)
 			pooling_layer(c2_2 + 128 * 16 * 16 * batch, p2 + 128 * 8 * 8 * batch, 128, 8);
 
+#ifdef PROFILE_ENABLE
+		t1 = high_resolution_clock::now();
+#endif
 		convolution_layer(p2, c3_1, w3_1, b3_1, 256, 128, 8, batch_size, imageCnt);
 		convolution_layer(c3_1, c3_2, w3_2, b3_2, 256, 256, 8, batch_size, imageCnt);
 		convolution_layer(c3_2, c3_3, w3_3, b3_3, 256, 256, 8, batch_size, imageCnt);
+#ifdef PROFILE_ENABLE
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		conv3_sec += time_span.count();
+#endif
 		for (int batch = 0; batch < imageCnt; batch++)
 			pooling_layer(c3_3 + 256 * 8 * 8 * batch, p3 + 256 * 4 * 4 * batch, 256, 4);
 
+#ifdef PROFILE_ENABLE
+		t1 = high_resolution_clock::now();
+#endif
 		convolution_layer(p3, c4_1, w4_1, b4_1, 512, 256, 4, batch_size, imageCnt);
 		convolution_layer(c4_1, c4_2, w4_2, b4_2, 512, 512, 4, batch_size, imageCnt);
 		convolution_layer(c4_2, c4_3, w4_3, b4_3, 512, 512, 4, batch_size, imageCnt);
+#ifdef PROFILE_ENABLE
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		conv4_sec += time_span.count();
+#endif
 		for (int batch = 0; batch < imageCnt; batch++)
 			pooling_layer(c4_3 + 512 * 4 * 4 * batch, p4 + 512 * 2 * 2 * batch, 512, 2);
 
+#ifdef PROFILE_ENABLE
+		t1 = high_resolution_clock::now();
+#endif
 		convolution_layer(p4, c5_1, w5_1, b5_1, 512, 512, 2, batch_size, imageCnt);
 		convolution_layer(c5_1, c5_2, w5_2, b5_2, 512, 512, 2, batch_size, imageCnt);
 		convolution_layer(c5_2, c5_3, w5_3, b5_3, 512, 512, 2, batch_size, imageCnt);
+#ifdef PROFILE_ENABLE
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		conv5_sec += time_span.count();
+#endif
 		for (int batch = 0; batch < imageCnt; batch++)
 		{
 			pooling_layer(c5_3 + 512 * 2 * 2 * batch, p5 + 512 * 1 * 1 * batch, 512, 1);

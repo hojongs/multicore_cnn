@@ -3,7 +3,7 @@
 
 int compare_result(int argc, char **argv);
 
-extern double before_kernel_sec, profile_sec, pooling_sec, conv_sec, fc_sec, softmax_sec, find_max_sec, RELU_sec;
+extern double before_kernel_sec, profile_sec, pooling_sec, conv_sec, conv1_sec, conv2_sec, conv3_sec, conv4_sec, conv5_sec, fc_sec, softmax_sec, find_max_sec, RELU_sec;
 extern long long write_nsec, kernel_nsec, read_nsec;
 extern const char *CLASS_NAME[];
 
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
     free(labels_ans);
 
 #ifdef PROFILE_ENABLE
-	printf("  - conv     : %lf sec \n", conv_sec);
+	printf("  - conv     : %lf sec = (%.2lf + %.2lf + %.2lf + %.2lf + %.2lf) sec \n", conv_sec, conv1_sec, conv2_sec, conv3_sec, conv4_sec, conv5_sec);
 	printf("    - before kernel : %lf sec \n", before_kernel_sec);
 	printf("      - write       : %lf sec \n", write_nsec / 1000000000.0);
 	printf("    - kernel        : %lf sec \n", kernel_nsec / 1000000000.0);
