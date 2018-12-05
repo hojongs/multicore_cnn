@@ -55,21 +55,21 @@ void convolution_layer(float *inputs, float *outputs, float *filters, float *bia
 #ifdef PROFILE_ENABLE
 	t1 = high_resolution_clock::now();
 #endif
-	clConv(inputs, outputs, filters, D2, D1, N, batch_size);
+	clConv(inputs, outputs, filters, biases, D2, D1, N, batch_size);
 
 #ifdef PROFILE_ENABLE
 	high_resolution_clock::time_point t_mid = high_resolution_clock::now();
 #endif
-	for (int batch = 0; batch < batch_size; batch++)
-	{
-		for (int out_channel = 0; out_channel < D2; out_channel++) {
-			float * output = outputs + N * N * (D2*batch + out_channel);
-			float bias = biases[out_channel];
-			for (int i = 0; i < N * N; i++) {
-				output[i] = ReLU(output[i] + bias);
-			}
-		}
-	}
+	//for (int batch = 0; batch < batch_size; batch++)
+	//{
+	//	for (int out_channel = 0; out_channel < D2; out_channel++) {
+	//		float * output = outputs + N * N * (D2*batch + out_channel);
+	//		float bias = biases[out_channel];
+	//		for (int i = 0; i < N * N; i++) {
+	//			output[i] = ReLU(output[i] + bias);
+	//		}
+	//	}
+	//}
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
 	time_span = duration_cast<duration<double>>(t2 - t1);

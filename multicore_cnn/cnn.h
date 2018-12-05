@@ -24,6 +24,6 @@ void convolution_layer(float *inputs, float *outputs, float *filters, float *bia
 void pooling_layer(float *inputs, float *outputs, int D, int N);
 
 void initOpenCL(int platform_idx, int gpu_idx);
-void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N, int batch_size);
+void clConv(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N, int batch_size);
 
 #endif 

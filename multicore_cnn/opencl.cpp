@@ -265,7 +265,7 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 double before_kernel_sec, profile_sec;
 long long write_nsec, kernel_nsec, read_nsec;
 
-void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N, int batch_size)
+void clConv(float *inputs, float *outputs, float *filters, float *biases, int D2, int D1, int N, int batch_size)
 {
 	cl_int err;
 #ifdef PROFILE_ENABLE
@@ -277,11 +277,14 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	const int inputs_size = sizeof(float) * D1*N*N * batch_size;
 	const int filters_size = sizeof(float) * 3 * 3 * D2 * D1;
 	const int outputs_size = sizeof(float) * D2*N*N * batch_size;
+	const int biases_size = sizeof(float) * D2;
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
 	CHECK_ERROR(err);
 	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, filters_size, NULL, &err);
 	CHECK_ERROR(err);
 	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputs_size, NULL, &err);
+	CHECK_ERROR(err);
+	cl_mem bufBiases = clCreateBuffer(context, CL_MEM_READ_ONLY, biases_size, NULL, &err);
 	CHECK_ERROR(err);
 
 	const float pattern = 0;
@@ -290,6 +293,7 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	clEnqueueFillBuffer(kernel_queue, bufOutputs, &pattern, sizeof(float), 0, outputs_size, 0, NULL, &write_first);
 	clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_last);
 	clEnqueueWriteBuffer(kernel_queue, bufFilters, CL_FALSE, 0, filters_size, filters, 0, NULL, NULL);
+	clEnqueueWriteBuffer(kernel_queue, bufBiases, CL_FALSE, 0, biases_size, biases, 0, NULL, NULL);
 
 	err = clSetKernelArg(convKernel, 0, sizeof(cl_mem), &bufInputs);
 	CHECK_ERROR(err);
@@ -297,11 +301,13 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	CHECK_ERROR(err);
 	err = clSetKernelArg(convKernel, 2, sizeof(cl_mem), &bufOutputs);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 3, sizeof(cl_int), &D1);
+	err = clSetKernelArg(convKernel, 3, sizeof(cl_mem), &bufBiases);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &D2);
+	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &D1);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &N);
+	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &D2);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 6, sizeof(cl_int), &N);
 	CHECK_ERROR(err);
 
 	int work_dim = 2;
