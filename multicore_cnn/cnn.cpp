@@ -156,10 +156,10 @@ void cnn_init() {
 	int platform_idx = 0;
 	int gpu_idx = 0;
 	
-	printf("platform_idx : ");
-	scanf("%d", &platform_idx);
-	printf("gpu_idx : ");
-	scanf("%d", &gpu_idx);
+	//printf("platform_idx : ");
+	//scanf("%d", &platform_idx);
+	//printf("gpu_idx : ");
+	//scanf("%d", &gpu_idx);
 
 	initOpenCL(platform_idx, gpu_idx);
 }
@@ -189,7 +189,9 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
     w2 = network[28]; b2 = network[29];
     w3 = network[30]; b3 = network[31];
 
-	int batch_size = 2;
+	int batch_size;
+	printf("Input batch size: ");
+	scanf("%d", &batch_size);
 
     // allocate memory for output of each layer
     float *c1_1, *c1_2, *p1;
