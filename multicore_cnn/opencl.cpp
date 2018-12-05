@@ -242,7 +242,7 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 			cl_ulong max_mem_alloc_size;
 			err = clGetDeviceInfo(devices[d], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &max_mem_alloc_size, NULL);
 			CHECK_ERROR(err);
-			printf("- CL_DEVICE_MAX_MEM_ALLOC_SIZE : %llu\n\n", local_mem_size);
+			printf("- CL_DEVICE_MAX_MEM_ALLOC_SIZE : %llu\n\n", max_mem_alloc_size);
 
 			if (p == platform_idx AND d == gpu_idx)
 			{
