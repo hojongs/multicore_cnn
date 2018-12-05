@@ -331,7 +331,7 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 	CHECK_ERROR(err);
 	err = clSetKernelArg(convKernel, i++, sizeof(cl_int), &imageCnt);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_float)*3*3, NULL);
+	err = clSetKernelArg(convKernel, i++, sizeof(cl_float)*D1*3*3, NULL);
 	CHECK_ERROR(err);
 
 	int work_dim = 2;
