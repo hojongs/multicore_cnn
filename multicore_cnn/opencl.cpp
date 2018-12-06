@@ -278,6 +278,7 @@ void clConv(float *inputs, float *outputs, float *filters, float *biases, int D2
 	const int filters_size = sizeof(float) * 3 * 3 * D2 * D1;
 	const int outputs_size = sizeof(float) * D2*N*N * batch_size;
 	const int biases_size = sizeof(float) * D2;
+
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
 	CHECK_ERROR(err);
 	cl_mem bufFilters = clCreateBuffer(context, CL_MEM_READ_ONLY, filters_size, NULL, &err);
@@ -311,8 +312,8 @@ void clConv(float *inputs, float *outputs, float *filters, float *biases, int D2
 	CHECK_ERROR(err);
 
 	int work_dim = 2;
-	const size_t global_work_size[] = { D2*N*N, batch_size };
-	const size_t local_work_size[] = { D2, 1 };
+	const size_t global_work_size[] = { D2, batch_size * N * N };
+	const size_t local_work_size[] = { 1, 256 };
 
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
