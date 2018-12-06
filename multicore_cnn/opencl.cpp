@@ -398,7 +398,7 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 #endif
 }
 
-void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int outM, int inN, int batch_size)
+void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int outM, int inN, int batch_size, int imageCnt)
 {
 #ifdef PROFILE_ENABLE
 	high_resolution_clock::time_point t1, t2;
@@ -434,10 +434,12 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 	CHECK_ERROR(err);
 	err = clSetKernelArg(fcKernel, i++, sizeof(cl_int), &batch_size);
 	CHECK_ERROR(err);
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_int), &imageCnt);
+	CHECK_ERROR(err);
 
-	int work_dim = 1;
-	const size_t global_work_size[] = { outM * batch_size };
-	const size_t local_work_size[] = { 256 };
+	int work_dim = 2;
+	const size_t global_work_size[] = { outM, batch_size };
+	const size_t local_work_size[] = { 1, 256 };
 
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();

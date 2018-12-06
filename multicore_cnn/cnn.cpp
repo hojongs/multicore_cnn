@@ -68,9 +68,9 @@ void convolution_layer(float *inputs, float *outputs, cl_mem filters, cl_mem bia
  * M = output size
  * N = input size
  */
-static void fc_layer(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int M, int N, int batch_size)
+static void fc_layer(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int M, int N, int batch_size, int imageCnt)
 {
-	clFc(input_neuron, output_neuron, weights, biases, M, N, batch_size);
+	clFc(input_neuron, output_neuron, weights, biases, M, N, batch_size, imageCnt);
 }
 
 static void softmax(float *output, int N) {
@@ -284,9 +284,9 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
 #ifdef PROFILE_ENABLE
 		t1 = high_resolution_clock::now();
 #endif
-		fc_layer(p5, fc1, w1, b1, 512, 512, batch_size);
-		fc_layer(fc1, fc2, w2, b2, 512, 512, batch_size);
-		fc_layer(fc2, fc3, w3, b3, 10, 512, batch_size);
+		fc_layer(p5, fc1, w1, b1, 512, 512, batch_size, imageCnt);
+		fc_layer(fc1, fc2, w2, b2, 512, 512, batch_size, imageCnt);
+		fc_layer(fc2, fc3, w3, b3, 10, 512, batch_size, imageCnt);
 #ifdef PROFILE_ENABLE
 		t2 = high_resolution_clock::now();
 		time_span = duration_cast<duration<double>>(t2 - t1);
