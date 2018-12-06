@@ -322,7 +322,7 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 	const int outputs_size = sizeof(float) * D2*N*N * imageCnt;
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputs_size, NULL, &err);
+	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_WRITE_ONLY, outputs_size, NULL, &err);
 	CHECK_ERROR(err);
 
 	cl_event write_event;
@@ -412,7 +412,7 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 	const int outputs_size = sizeof(float) * outM * batch_size;
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
 	CHECK_ERROR(err);
-	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputs_size, NULL, &err);
+	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_WRITE_ONLY, outputs_size, NULL, &err);
 	CHECK_ERROR(err);
 
 	cl_event write_event;
@@ -437,6 +437,7 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 
 	int work_dim = 1;
 	const size_t global_work_size[] = { outM * batch_size };
+	const size_t local_work_size[] = { 256 };
 
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
@@ -447,7 +448,7 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 	cl_event kernel_event;
 	err = clEnqueueNDRangeKernel(
 		kernel_queue, fcKernel, work_dim, NULL,
-		global_work_size, NULL,
+		global_work_size, local_work_size,
 		0, NULL, &kernel_event);
 	CHECK_ERROR(err);
 

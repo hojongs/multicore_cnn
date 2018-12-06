@@ -59,11 +59,17 @@ __kernel void fc(
 		__global const float* biases,
 		const int inN,
 		const int outM,
-		const int batch_size
+		const int batch_size,
+		const int imageCnt
 	)
 {
 	const int out = get_global_id(0) / batch_size;
 	const int batch = get_global_id(0) % batch_size;
+
+	
+	
+	if (batch >= imageCnt)
+		return;
 
 	float sum = 0;
 	for (int in = 0; in < inN; in++)
