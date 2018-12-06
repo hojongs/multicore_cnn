@@ -68,22 +68,14 @@ void convolution_layer(float *inputs, float *outputs, cl_mem filters, cl_mem bia
  * M = output size
  * N = input size
  */
-#define ReLU(x) (((x)>0)?(x):0)
-static void fc_layer(float *input_neuron, float *output_neuron, float *weights, float *biases, int M, int N) {
+static void fc_layer(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int M, int N)
+{
 #ifdef PROFILE_ENABLE
 	high_resolution_clock::time_point t1, t2;
 	duration<double> time_span;
 	t1 = high_resolution_clock::now();
 #endif
-	int i, j;
-    for (j = 0; j < M; j++) {
-        float sum = 0;
-        for (i = 0; i < N; i++) {
-            sum += input_neuron[i] * weights[j * N + i];
-        }
-        sum += biases[j];
-        output_neuron[j] = ReLU(sum);
-    }
+	clFc(input_neuron, output_neuron, weights, biases, M, N);
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
 	time_span = duration_cast<duration<double>>(t2 - t1);
@@ -163,7 +155,7 @@ void cnn_init() {
 	initOpenCL(platform_idx, gpu_idx);
 }
 
-cl_mem alloc_weight(float* filters, int D2, int D1);
+cl_mem alloc_filter(float* filters, int D2, int D1);
 cl_mem alloc_bias(float* bias, int D2);
 
 void cnn(float *images, float **network, int *labels, float *confidences, int num_images, int batch_size) {
@@ -173,23 +165,23 @@ void cnn(float *images, float **network, int *labels, float *confidences, int nu
 	cl_mem w3_1, b3_1, w3_2, b3_2, w3_3, b3_3;
 	cl_mem w4_1, b4_1, w4_2, b4_2, w4_3, b4_3;
 	cl_mem w5_1, b5_1, w5_2, b5_2, w5_3, b5_3;
-	float *w1, *b1, *w2, *b2, *w3, *b3;
-    w1_1 = alloc_weight(network[0], 64, 3);     b1_1 = alloc_bias(network[1], 64);
-    w1_2 = alloc_weight(network[2], 64, 64);    b1_2 = alloc_bias(network[3], 64);
-    w2_1 = alloc_weight(network[4], 128, 64);   b2_1 = alloc_bias(network[5], 128);
-    w2_2 = alloc_weight(network[6], 128, 128);  b2_2 = alloc_bias(network[7], 128);
-    w3_1 = alloc_weight(network[8], 256, 128);  b3_1 = alloc_bias(network[9], 256);
-    w3_2 = alloc_weight(network[10], 256, 256); b3_2 = alloc_bias(network[11], 256);
-    w3_3 = alloc_weight(network[12], 256, 256); b3_3 = alloc_bias(network[13], 256);
-    w4_1 = alloc_weight(network[14], 512, 256); b4_1 = alloc_bias(network[15], 512);
-    w4_2 = alloc_weight(network[16], 512, 512); b4_2 = alloc_bias(network[17], 512);
-    w4_3 = alloc_weight(network[18], 512, 512); b4_3 = alloc_bias(network[19], 512);
-    w5_1 = alloc_weight(network[20], 512, 512); b5_1 = alloc_bias(network[21], 512);
-    w5_2 = alloc_weight(network[22], 512, 512); b5_2 = alloc_bias(network[23], 512);
-    w5_3 = alloc_weight(network[24], 512, 512); b5_3 = alloc_bias(network[25], 512);
-    w1 = network[26]; b1 = network[27];
-    w2 = network[28]; b2 = network[29];
-    w3 = network[30]; b3 = network[31];
+	cl_mem w1, b1, w2, b2, w3, b3;
+    w1_1 = alloc_filter(network[0], 64, 3);     b1_1 = alloc_bias(network[1], 64);
+    w1_2 = alloc_filter(network[2], 64, 64);    b1_2 = alloc_bias(network[3], 64);
+    w2_1 = alloc_filter(network[4], 128, 64);   b2_1 = alloc_bias(network[5], 128);
+    w2_2 = alloc_filter(network[6], 128, 128);  b2_2 = alloc_bias(network[7], 128);
+    w3_1 = alloc_filter(network[8], 256, 128);  b3_1 = alloc_bias(network[9], 256);
+    w3_2 = alloc_filter(network[10], 256, 256); b3_2 = alloc_bias(network[11], 256);
+    w3_3 = alloc_filter(network[12], 256, 256); b3_3 = alloc_bias(network[13], 256);
+    w4_1 = alloc_filter(network[14], 512, 256); b4_1 = alloc_bias(network[15], 512);
+    w4_2 = alloc_filter(network[16], 512, 512); b4_2 = alloc_bias(network[17], 512);
+    w4_3 = alloc_filter(network[18], 512, 512); b4_3 = alloc_bias(network[19], 512);
+    w5_1 = alloc_filter(network[20], 512, 512); b5_1 = alloc_bias(network[21], 512);
+    w5_2 = alloc_filter(network[22], 512, 512); b5_2 = alloc_bias(network[23], 512);
+    w5_3 = alloc_filter(network[24], 512, 512); b5_3 = alloc_bias(network[25], 512);
+    w1 = alloc_fc_weight(network[26], 512*512); b1 = alloc_bias(network[27], 512);
+    w2 = alloc_fc_weight(network[28], 512*512); b2 = alloc_bias(network[29], 512);
+    w3 = alloc_fc_weight(network[30], 10*512);; b3 = alloc_bias(network[31], 10);
 
     // allocate memory for output of each layer
     float *c1_1, *c1_2, *p1;

@@ -12,7 +12,7 @@
 
 cl_context context;
 cl_command_queue kernel_queue;
-cl_kernel convKernel;
+cl_kernel convKernel, fcKernel;
 
 const char *getErrorString(cl_int error)
 {
@@ -263,7 +263,8 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 	return device;
 }
 
-cl_mem alloc_weight(float* filters, int D2, int D1)
+// TODO : ΕλΐΟ
+cl_mem alloc_filter(float* filters, int D2, int D1)
 {
 	cl_int err;
 
@@ -289,6 +290,20 @@ cl_mem alloc_bias(float* bias, int D2)
 	CHECK_ERROR(err);
 
 	return bufBias;
+}
+
+cl_mem alloc_fc_weight(float* weights, int len)
+{
+	cl_int err;
+
+	const int weights_size = sizeof(float) * len;
+
+	cl_mem buf = clCreateBuffer(context, CL_MEM_READ_ONLY, weights_size, NULL, &err);
+	CHECK_ERROR(err);
+	err = clEnqueueWriteBuffer(kernel_queue, buf, CL_FALSE, 0, weights_size, weights, 0, NULL, NULL);
+	CHECK_ERROR(err);
+
+	return buf;
 }
 
 double before_kernel_sec, profile_sec;
@@ -383,6 +398,87 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 #endif
 }
 
+void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int outM, int inN)
+{
+#ifdef PROFILE_ENABLE
+	high_resolution_clock::time_point t1, t2;
+	duration<double> time_span;
+
+	t1 = high_resolution_clock::now();
+#endif
+	cl_int err;
+
+	const int inputs_size = sizeof(float) * inN;
+	const int outputs_size = sizeof(float) * outM;
+	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
+	CHECK_ERROR(err);
+	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputs_size, NULL, &err);
+	CHECK_ERROR(err);
+
+	cl_event write_event;
+	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, input_neuron, 0, NULL, &write_event);
+	CHECK_ERROR(err);
+
+	int i = 0;
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_mem), &bufInputs);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_mem), &weights);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_mem), &bufOutputs);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_mem), &biases);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_int), &inN);
+	CHECK_ERROR(err);
+
+	int work_dim = 1;
+	const size_t global_work_size[] = { outM };
+
+#ifdef PROFILE_ENABLE
+	t2 = high_resolution_clock::now();
+	time_span = duration_cast<duration<double>>(t2 - t1);
+	// before_kernel_sec += time_span.count();
+#endif
+
+	cl_event kernel_event;
+	err = clEnqueueNDRangeKernel(
+		kernel_queue, fcKernel, work_dim, NULL,
+		global_work_size, NULL,
+		0, NULL, &kernel_event);
+	CHECK_ERROR(err);
+
+	cl_event read_event;
+	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, outputs_size, output_neuron,
+		0, NULL, &read_event);
+	CHECK_ERROR(err);
+
+	err = clReleaseMemObject(bufInputs);
+	CHECK_ERROR(err);
+	err = clReleaseMemObject(bufOutputs);
+	CHECK_ERROR(err);
+
+#ifdef PROFILE_ENABLE
+	t1 = high_resolution_clock::now();
+
+	cl_ulong start_nsec, end_nsec;
+	clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+	clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+	//write_nsec += end_nsec - start_nsec;
+
+	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+	//kernel_nsec += end_nsec - start_nsec;
+
+	clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+	clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+	//read_nsec += end_nsec - start_nsec;
+
+	t2 = high_resolution_clock::now();
+	time_span = duration_cast<duration<double>>(t2 - t1);
+	//profile_sec += time_span.count();
+#endif
+}
+
 void initOpenCL(int platform_idx, int gpu_idx)
 {
 	cl_int err = 0;
@@ -402,4 +498,5 @@ void initOpenCL(int platform_idx, int gpu_idx)
 	CHECK_ERROR(err);
 
 	convKernel = getKernel(context, device, "kernel.cl", "conv");
+	fcKernel = getKernel(context, device, "kernel.cl", "fc");
 }

@@ -51,3 +51,20 @@ __kernel void conv(
 	const float bias = biases[out_channel];
 	output[i * N + j] = ReLU(sum + bias);
 }
+
+__kernel void fc(
+		__global const float* input_neuron,
+		__global const float* weights,
+		__global float* output_neuron,
+		__global const float* biases,
+		const int inN
+	)
+{
+	const int out = get_global_id(0);
+
+	float sum = 0;
+	for (int in = 0; in < inN; in++) {
+		sum += input_neuron[in] * weights[out * inN + in];
+	}
+	output_neuron[out] = ReLU(sum + biases[out]);
+}
