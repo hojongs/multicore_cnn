@@ -141,7 +141,14 @@ static int find_max(float *fc, int N) {
 }
 
 float* alloc_layer(size_t n) {
-    return (float*)malloc(n * sizeof(float));
+	float* ptr = (float*)malloc(n * sizeof(float));
+	if (ptr == NULL)
+	{
+		printf("alloc_layer fail \n");
+		exit(EXIT_FAILURE);
+	}
+
+    return ptr;
 }
 
 void cnn_init() {
