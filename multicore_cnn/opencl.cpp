@@ -304,11 +304,13 @@ void clConv(float *inputs, float *outputs, float *filters, float *biases, int D2
 	CHECK_ERROR(err);
 	err = clSetKernelArg(convKernel, 3, sizeof(cl_mem), &bufBiases);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 4, sizeof(cl_int), &D1);
+	err = clSetKernelArg(convKernel, 4, sizeof(float) * 3 * 3 * D1, NULL);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &D2);
+	err = clSetKernelArg(convKernel, 5, sizeof(cl_int), &D1);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, 6, sizeof(cl_int), &N);
+	err = clSetKernelArg(convKernel, 6, sizeof(cl_int), &D2);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, 7, sizeof(cl_int), &N);
 	CHECK_ERROR(err);
 
 	int work_dim = 2;

@@ -6,6 +6,7 @@ __kernel void conv(
 		__global const float* filters,
 		__global	   float* outputs,
 		__global const float* biases,
+		__local float* l_filter,
 		const int D1,
 		const int D2,
 		const int N
@@ -24,8 +25,19 @@ __kernel void conv(
 	__global const float* filter;
     __global float* output = outputs + N * N * (D2*batch + out_channel);
 
-	__local const float* l_filter;
-
+	if(lid_1 < D1) {
+		filter = filters + 3 * 3 * (out_channel * D1 + lid_1);
+		for(int x = 0; x < 9; x++) { 
+			l_filter[(3 * 3 * lid_1) + x] = filter[x];	
+		}
+		if(lid_1 + get_local_size(1) < D1) { 
+			filter = filters + 3 * 3 * (out_channel * D1 + lid_1 + 256);
+			for(int x = 0; x < 9; x++) { 
+				l_filter[(3 * 3 * (lid_1 + 256)) + x] = filter[x];	
+			}
+		}
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
 	
 	float sum = 0;
 	for (int in_channel = 0; in_channel < D1; in_channel++) {
@@ -35,8 +47,9 @@ __kernel void conv(
 			for (int l = 0; l < 3; l++) {
 				int x = i + k - 1;
 				int y = j + l - 1;
-				if (x >= 0 && x < N && y >= 0 && y < N)
-					sum += input[x * N + y] * filter[k * 3 + l];
+				if (x >= 0 && x < N && y >= 0 && y < N) {
+					sum += input[x * N + y] * l_filter[3 * 3 * in_channel + k * 3 + l];
+				}
 			}
 		}
 	}
