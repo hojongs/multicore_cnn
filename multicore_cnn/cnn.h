@@ -27,6 +27,6 @@ void initOpenCL(int platform_idx, int gpu_idx);
 void clConv(float *inputs, float *outputs, cl_mem filters, cl_mem biases, int D2, int D1, int N, int batch_size, int imageCnt);
 
 cl_mem alloc_fc_weight(float* weights, int len);
-void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int outM, int inN);
+void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int outM, int inN, int batch_size);
 
 #endif 

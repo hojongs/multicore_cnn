@@ -57,14 +57,17 @@ __kernel void fc(
 		__global const float* weights,
 		__global float* output_neuron,
 		__global const float* biases,
-		const int inN
+		const int inN,
+		const int outM,
+		const int batch_size
 	)
 {
-	const int out = get_global_id(0);
+	const int out = get_global_id(0) / batch_size;
+	const int batch = get_global_id(0) % batch_size;
 
 	float sum = 0;
-	for (int in = 0; in < inN; in++) {
-		sum += input_neuron[in] * weights[out * inN + in];
-	}
-	output_neuron[out] = ReLU(sum + biases[out]);
+	for (int in = 0; in < inN; in++)
+		sum += input_neuron[batch * inN + in] * weights[out * inN + in];
+
+	output_neuron[batch * outM + out] = ReLU(sum + biases[out]);
 }

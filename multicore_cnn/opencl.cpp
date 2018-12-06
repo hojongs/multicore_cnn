@@ -398,7 +398,7 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 #endif
 }
 
-void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int outM, int inN)
+void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int outM, int inN, int batch_size)
 {
 #ifdef PROFILE_ENABLE
 	high_resolution_clock::time_point t1, t2;
@@ -408,8 +408,8 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 #endif
 	cl_int err;
 
-	const int inputs_size = sizeof(float) * inN;
-	const int outputs_size = sizeof(float) * outM;
+	const int inputs_size = sizeof(float) * inN * batch_size;
+	const int outputs_size = sizeof(float) * outM * batch_size;
 	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
 	CHECK_ERROR(err);
 	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputs_size, NULL, &err);
@@ -430,9 +430,13 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 	CHECK_ERROR(err);
 	err = clSetKernelArg(fcKernel, i++, sizeof(cl_int), &inN);
 	CHECK_ERROR(err);
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_int), &outM);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_int), &batch_size);
+	CHECK_ERROR(err);
 
 	int work_dim = 1;
-	const size_t global_work_size[] = { outM };
+	const size_t global_work_size[] = { outM * batch_size };
 
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
