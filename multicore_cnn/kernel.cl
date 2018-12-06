@@ -1,8 +1,8 @@
 #define ReLU(x) (((x)>0)?(x):0)
 
 __kernel void conv(
-		__global float* inputs,
-		__global float* filters,
+		__global const float* inputs,
+		__global const float* filters,
 		__global float* outputs,
 		__constant float* biases,
 		const int D1,
@@ -21,7 +21,7 @@ __kernel void conv(
 	const int lsize = get_local_size(1);
 
     __global float* output = outputs + N * N * (D2*batch + out_channel);
-	__global float* filter = filters + out_channel * D1 * 3 * 3;
+	__global const float* filter = filters + out_channel * D1 * 3 * 3;
 
 	if (lid < D1)
 	{
@@ -37,8 +37,7 @@ __kernel void conv(
 	float sum = 0;
 	for (int in_channel = 0; in_channel < D1; in_channel++)
     {
-		__global float* input = inputs + N * N * (D1*batch + in_channel);
-		//__global float* filter = filters + 3 * 3 * (out_channel * D1 + in_channel);
+		__global const float* input = inputs + N * N * (D1*batch + in_channel);
 
 		for (int k = 0; k < 3; k++) {
 			for (int l = 0; l < 3; l++) {
@@ -49,6 +48,6 @@ __kernel void conv(
 			}
 		}
 	}
-	float bias = biases[out_channel];
+	const float bias = biases[out_channel];
 	output[i * N + j] = ReLU(sum + bias);
 }
