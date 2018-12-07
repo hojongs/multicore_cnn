@@ -132,8 +132,17 @@ cl_kernel getKernel(cl_context context, cl_device_id device, const char* source_
 	//sprintf(option, R"(-g -s "C:\Users\hojong\Desktop\multicore_cnn\multicore_cnn\kernel.cl")");
 	sprintf(option, "");
 	err = clBuildProgram(program, 1, &device, option, NULL, NULL);
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, STR_LEN, str, NULL);
+	CHECK_ERROR(err);
+	err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, STR_LEN, str, NULL);
 	printf("%s \n", str);
+	CHECK_ERROR(err);
+	cl_build_status status;
+	err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &status, NULL);
+	if (status != CL_BUILD_SUCCESS)
+	{
+		printf("build fail \n");
+		exit(1);
+	}
 	CHECK_ERROR(err);
 
 	kernel = clCreateKernel(program, kernel_name, &err);
