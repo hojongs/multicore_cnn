@@ -12,7 +12,7 @@
 
 cl_context context;
 cl_command_queue kernel_queue;
-cl_kernel convKernel, fcKernel;
+cl_kernel conv1Kernel, conv2Kernel, fcKernel;
 
 const char *getErrorString(cl_int error)
 {
@@ -311,91 +311,182 @@ long long write_nsec, kernel_nsec, read_nsec;
 
 void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, int D2, int D1, int N, int batch_size, int imageCnt)
 {
-	cl_int err;
+	if (D1 == 256)
+	{
+		cl_int err;
 #ifdef PROFILE_ENABLE
-	high_resolution_clock::time_point t1, t2;
-	duration<double> time_span;
+		high_resolution_clock::time_point t1, t2;
+		duration<double> time_span;
 
-	t1 = high_resolution_clock::now();
+		t1 = high_resolution_clock::now();
 #endif
-	const int inputs_size = sizeof(float) * D1*N*N * imageCnt;
-	const int outputs_size = sizeof(float) * D2*N*N * imageCnt;
-	cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
-	CHECK_ERROR(err);
-	cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_WRITE_ONLY, outputs_size, NULL, &err);
-	CHECK_ERROR(err);
+		const int inputs_size = sizeof(cl_float) * D1*N*N * imageCnt;
+		const int outputs_size = sizeof(cl_float) * D2*N*N * imageCnt;
+		cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
+		CHECK_ERROR(err);
+		cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_WRITE_ONLY, outputs_size, NULL, &err);
+		CHECK_ERROR(err);
 
-	cl_event write_event;
-	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_event);
-	CHECK_ERROR(err);
+		cl_event write_event;
+		err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_event);
+		CHECK_ERROR(err);
 
-	int i = 0;
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_mem), &bufInputs);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_mem), &bufFilters);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_mem), &bufOutputs);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_mem), &bufBiases);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_int), &D1);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_int), &D2);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_int), &N);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_int), &imageCnt);
-	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_float)*D1*3*3, NULL);
-	CHECK_ERROR(err);
+		int i = 0;
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_mem), &bufInputs);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_mem), &bufFilters);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_mem), &bufOutputs);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_mem), &bufBiases);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_int), &D1);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_int), &D2);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_int), &N);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_int), &imageCnt);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_float)*256, NULL);
+		CHECK_ERROR(err);
 
-	int work_dim = 2;
-	const size_t global_work_size[] = { D2, N*N*batch_size };
-	const size_t local_work_size[] = { 1, 256 };
-
-#ifdef PROFILE_ENABLE
-	t2 = high_resolution_clock::now();
-	time_span = duration_cast<duration<double>>(t2 - t1);
-	before_kernel_sec += time_span.count();
-#endif
-
-	cl_event kernel_event;
-	err = clEnqueueNDRangeKernel(
-		kernel_queue, convKernel, work_dim, NULL,
-		global_work_size, local_work_size,
-		0, NULL, &kernel_event);
-	CHECK_ERROR(err);
-
-	cl_event read_event;
-	err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, outputs_size, outputs,
-		0, NULL, &read_event);
-	CHECK_ERROR(err);
-
-	err = clReleaseMemObject(bufInputs);
-	CHECK_ERROR(err);
-	err = clReleaseMemObject(bufOutputs);
-	CHECK_ERROR(err);
+		int work_dim = 2;
+		const size_t global_work_size[] = { D2, N*N*batch_size, D1 };
+		const size_t local_work_size[] = { 1, 1, 256 };
 
 #ifdef PROFILE_ENABLE
-	t1 = high_resolution_clock::now();
-
-	cl_ulong start_nsec, end_nsec;
-	clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
-	clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
-	write_nsec += end_nsec - start_nsec;
-
-	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
-	clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
-	kernel_nsec += end_nsec - start_nsec;
-
-	clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
-	clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
-	read_nsec += end_nsec - start_nsec;
-
-	t2 = high_resolution_clock::now();
-	time_span = duration_cast<duration<double>>(t2 - t1);
-	profile_sec += time_span.count();
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		before_kernel_sec += time_span.count();
 #endif
+
+		cl_event kernel_event;
+		err = clEnqueueNDRangeKernel(
+			kernel_queue, conv2Kernel, work_dim, NULL,
+			global_work_size, local_work_size,
+			0, NULL, &kernel_event);
+		CHECK_ERROR(err);
+
+		cl_event read_event;
+		err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, outputs_size, outputs,
+			0, NULL, &read_event);
+		CHECK_ERROR(err);
+
+		err = clReleaseMemObject(bufInputs);
+		CHECK_ERROR(err);
+		err = clReleaseMemObject(bufOutputs);
+		CHECK_ERROR(err);
+
+#ifdef PROFILE_ENABLE
+		t1 = high_resolution_clock::now();
+
+		cl_ulong start_nsec, end_nsec;
+		clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+		clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+		write_nsec += end_nsec - start_nsec;
+
+		clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+		clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+		kernel_nsec += end_nsec - start_nsec;
+
+		clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+		clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+		read_nsec += end_nsec - start_nsec;
+
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		profile_sec += time_span.count();
+#endif
+	}
+	else
+	{
+		cl_int err;
+#ifdef PROFILE_ENABLE
+		high_resolution_clock::time_point t1, t2;
+		duration<double> time_span;
+
+		t1 = high_resolution_clock::now();
+#endif
+		const int inputs_size = sizeof(cl_float) * D1*N*N * imageCnt;
+		const int outputs_size = sizeof(cl_float) * D2*N*N * imageCnt;
+		cl_mem bufInputs = clCreateBuffer(context, CL_MEM_READ_ONLY, inputs_size, NULL, &err);
+		CHECK_ERROR(err);
+		cl_mem bufOutputs = clCreateBuffer(context, CL_MEM_WRITE_ONLY, outputs_size, NULL, &err);
+		CHECK_ERROR(err);
+
+		cl_event write_event;
+		err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_event);
+		CHECK_ERROR(err);
+
+		int i = 0;
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_mem), &bufInputs);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_mem), &bufFilters);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_mem), &bufOutputs);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_mem), &bufBiases);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_int), &D1);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_int), &D2);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_int), &N);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_int), &imageCnt);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv1Kernel, i++, sizeof(cl_float)*D1 * 3 * 3, NULL);
+		CHECK_ERROR(err);
+
+		int work_dim = 2;
+		const size_t global_work_size[] = { D2, N*N*batch_size };
+		const size_t local_work_size[] = { 1, 256 };
+
+#ifdef PROFILE_ENABLE
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		before_kernel_sec += time_span.count();
+#endif
+
+		cl_event kernel_event;
+		err = clEnqueueNDRangeKernel(
+			kernel_queue, conv1Kernel, work_dim, NULL,
+			global_work_size, local_work_size,
+			0, NULL, &kernel_event);
+		CHECK_ERROR(err);
+
+		cl_event read_event;
+		err = clEnqueueReadBuffer(kernel_queue, bufOutputs, CL_TRUE, 0, outputs_size, outputs,
+			0, NULL, &read_event);
+		CHECK_ERROR(err);
+
+		err = clReleaseMemObject(bufInputs);
+		CHECK_ERROR(err);
+		err = clReleaseMemObject(bufOutputs);
+		CHECK_ERROR(err);
+
+#ifdef PROFILE_ENABLE
+		t1 = high_resolution_clock::now();
+
+		cl_ulong start_nsec, end_nsec;
+		clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+		clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+		write_nsec += end_nsec - start_nsec;
+
+		clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+		clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+		kernel_nsec += end_nsec - start_nsec;
+
+		clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start_nsec, NULL);
+		clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_nsec, NULL);
+		read_nsec += end_nsec - start_nsec;
+
+		t2 = high_resolution_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		profile_sec += time_span.count();
+#endif
+	}
 }
 
 void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem biases, int outM, int inN, int batch_size, int imageCnt)
@@ -506,6 +597,7 @@ void initOpenCL(int platform_idx, int gpu_idx)
 	kernel_queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
 	CHECK_ERROR(err);
 
-	convKernel = getKernel(context, device, "kernel.cl", "conv");
+	conv1Kernel = getKernel(context, device, "kernel.cl", "conv1");
+	conv2Kernel = getKernel(context, device, "kernel.cl", "conv2");
 	fcKernel = getKernel(context, device, "kernel.cl", "fc");
 }
