@@ -305,8 +305,8 @@ void clConv(float *inputs, float *outputs, float *filters, int D2, int D1, int N
 	CHECK_ERROR(err);
 
 	int work_dim = 2;
-	const size_t global_work_size[] = { D2*N*N, batch_size };
-	const size_t local_work_size[] = { 256, 1 };
+	const size_t global_work_size[] = { D2, batch_size };
+	const size_t local_work_size[] = { 1, 256 };
 
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
