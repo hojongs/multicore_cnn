@@ -21,32 +21,36 @@ __kernel void conv(
 	const int remain = gid_1 % (N * N);
 	const int i = remain / N;
 	const int j = remain % N;
-
+	
 	__global const float* input;
 	__global const float* filter;
     __global float* output = outputs + N * N * (D2*batch + out_channel);
 
 	if(lid_1 < D1) {
-		// set filters
+		// Set local filter
 		filter = filters + 3 * 3 * (out_channel * D1 + lid_1);
 		for(int x = 0; x < 9; x++) { 
 			l_filter[(3 * 3 * lid_1) + x] = filter[x];	
 		}
 		if(lid_1 + get_local_size(1) < D1) { 
-		//	filter = filters + 3 * 3 * (out_channel * D1 + lid_1 + 256);
-		//	for(int x = 0; x < 9; x++) { 
-		//		l_filter[(3 * 3 * (lid_1 + 256)) + x] = filter[x];	
-		//	}
+			filter = filters + 3 * 3 * (out_channel * D1 + lid_1 + 256);
+			for(int x = 0; x < 9; x++) { 
+				l_filter[(3 * 3 * (lid_1 + 256)) + x] = filter[x];	
+			}
 		}
+		
 
-		// set inputs
+
+		// Set local input
 		input = inputs + N * N * (D1 * batch + lid_1);
 		for(int x = 0; x < 3; x++){ 
 			for(int y = 0; y < 3; y++) { 
 				int u = i + x - 1;
 				int v = j + y - 1;
 				if(u >= 0 && u < N && v >= 0 && v < N) {
-					l_input[(3 * 3 * lid_1) + x * 3 + y] = input[u * 3 + v];
+					l_input[(3 * 3 * lid_1) + x * 3 + y] = input[u * N + v];
+				} else { 
+					l_input[(3 * 3 * lid_1) + x * 3 + y] = 0;
 				}
 			}
 		}
@@ -55,15 +59,16 @@ __kernel void conv(
 	
 	float sum = 0;
 	for (int in_channel = 0; in_channel < D1; in_channel++) {
-		input = inputs + N * N * (D1 * batch + in_channel);
+		//input = inputs + N * N * (D1 * batch + in_channel);
 		for (int k = 0; k < 3; k++) {
 			for (int l = 0; l < 3; l++) {
 				int x = i + k - 1;
 				int y = j + l - 1;
 				//if (x >= 0 && x < N && y >= 0 && y < N) {
-					//sum += input[x * N + y] * l_filter[3 * 3 * in_channel + k * 3 + l];
-					sum += l_input[3 * 3 * in_channel + k * 3 + l] * l_filter[3 * 3 * in_channel + k * 3 + l];
+				//	sum += input[x * N + y] * l_filter[3 * 3 * in_channel + k * 3 + l];
+				//printf("%f %f\n", l_input[3 * 3 * in_channel + k * 3 + l], input[x * N + y]);
 				//}
+				sum += l_input[3 * 3 * in_channel + k * 3 + l] * l_filter[3 * 3 * in_channel + k * 3 + l];
 			}
 		}
 	}
