@@ -61,18 +61,16 @@ __kernel void conv2(
 		const int D2,
 		const int N,
 		const int imageCnt,
+		const int batch_size,
 		__local float* lSum
 	) 
 {
-	const int out_channel = get_global_id(0);
-	const int batch = get_global_id(1) / (N*N);
-	const int remain = get_global_id(1) % (N*N);
-	const int i = remain / N;
-	const int j = remain % N;
-	const int in_channel = get_global_id(2);
+	const int out_channel = get_global_id(0) / batch_size;
+	const int batch = get_global_id(0) % batch_size;
+	const int in_channel = get_global_id(1);
 
-	const int lid = get_local_id(2);
-	const int lsize = get_local_size(2);
+	const int lid = get_local_id(1);
+	const int lsize = get_local_size(1);
 
 	__global const float* input = inputs + N * N * (D1*batch + in_channel);
     __global float* output = outputs + N * N * (D2*batch + out_channel);
@@ -81,22 +79,32 @@ __kernel void conv2(
 	if (batch >= imageCnt)
 		return;
 
-	float sum = 0;
-	for (int k = 0; k < 3; k++) {
-		for (int l = 0; l < 3; l++) {
-			int x = i + k - 1;
-			int y = j + l - 1;
-			if (x >= 0 && x < N && y >= 0 && y < N)
-				sum += input[x * N + y] * filter[(k*3) + l];
+	for (int i=0;i<N;i++)
+	{
+		for (int j=0;j<N;j++)
+		{
+			float sum = 0;
+			for (int k = 0; k < 3; k++) 
+			{
+				for (int l = 0; l < 3; l++) 
+				{
+					int x = i + k - 1;
+					int y = j + l - 1;
+					if (x >= 0 && x < N && y >= 0 && y < N)
+						sum += input[x * N + y] * filter[(k*3) + l];
+				}
+			}
+			lSum[lid*N*N + i*N + j] = sum;
 		}
 	}
-	lSum[lid] = sum;
 	barrier(CLK_LOCAL_MEM_FENCE);
-
+	
 	for (int p = lsize / 2; p >= 1; p = p >> 1)
 	{
-		if (lid < p)
-			lSum[lid] += lSum[lid+p];
+		for (int i=0;i<N;i++)
+			for (int j=0;j<N;j++)
+				if (lid < p)
+					lSum[lid*N*N + i*N + j] += lSum[(lid+p)*N*N + i*N + j];
 
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
@@ -104,7 +112,9 @@ __kernel void conv2(
 	if (lid == 0)
 	{
 		const float bias = biases[out_channel];
-		output[i * N + j] = ReLU(lSum[0] + bias);
+		for (int i=0;i<N;i++)
+			for (int j=0;j<N;j++)
+				output[i * N + j] = ReLU(lSum[i * N + j] + bias);
 	}
 }
 

@@ -320,7 +320,7 @@ long long write_nsec, kernel_nsec, read_nsec;
 
 void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, int D2, int D1, int N, int batch_size, int imageCnt)
 {
-	if (D1 == 256)
+	if (D1 == 256 && N == 4)
 	{
 		cl_int err;
 #ifdef PROFILE_ENABLE
@@ -357,12 +357,14 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 		CHECK_ERROR(err);
 		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_int), &imageCnt);
 		CHECK_ERROR(err);
-		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_float)*256, NULL);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_int), &batch_size);
+		CHECK_ERROR(err);
+		err = clSetKernelArg(conv2Kernel, i++, sizeof(cl_float)*D1*N*N, NULL);
 		CHECK_ERROR(err);
 
 		int work_dim = 2;
-		const size_t global_work_size[] = { D2, N*N*batch_size, D1 };
-		const size_t local_work_size[] = { 1, 1, 256 };
+		const size_t global_work_size[] = { D2*batch_size, D1 };
+		const size_t local_work_size[] = { 256 / D1, D1 };
 
 #ifdef PROFILE_ENABLE
 		t2 = high_resolution_clock::now();
@@ -541,7 +543,12 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 
 	int work_dim = 2;
 	const size_t global_work_size[] = { outM, batch_size };
-	const size_t local_work_size[] = { 1, 256 };
+	size_t local_work_size[] = { 1, 256 };
+	if (batch_size < 256)
+	{
+		local_work_size[0] = 1;
+		local_work_size[1] = batch_size;
+	}
 
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
