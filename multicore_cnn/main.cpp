@@ -64,8 +64,8 @@ int main(int argc, char **argv)
 	printf("  - find_max : %lf sec \n", find_max_sec);
 #endif
 
-	char* params[] = { "", "result.out", "seq.out", NULL };
-	compare_result(3, params);
+	const char* params[] = { "", "result.out", "seq.out", NULL };
+	compare_result(3, (char**)params);
 
     return 0;
 }

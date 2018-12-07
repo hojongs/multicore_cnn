@@ -146,7 +146,7 @@ cl_device_id getDevice(int platform_idx, int gpu_idx)
 {
 	char str[STR_LEN] = { 0 };
 	cl_int err;
-	cl_device_id device;
+	cl_device_id device = NULL;
 
 	cl_uint num_platforms;
 	err = clGetPlatformIDs(0, NULL, &num_platforms);

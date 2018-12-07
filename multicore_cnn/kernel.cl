@@ -72,8 +72,7 @@ __kernel void fc(
 	if (lid < inN)
 	{
 		for(int l=0;l<inN;l+=lsize)
-			for (int in=0;in<inN;in++)
-				l_weights[l+lid] = weights[out * inN + in];
+			l_weights[l+lid] = weights[out * inN + l+lid];
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
 	

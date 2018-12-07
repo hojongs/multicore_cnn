@@ -6,6 +6,7 @@
 #include <string.h>
 #include <chrono>
 #include <CL/cl.h>
+#pragma warning(disable:4996)
 #define PROFILE_ENABLE
 
 using namespace std::chrono;
