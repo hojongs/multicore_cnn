@@ -346,7 +346,9 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 	CHECK_ERROR(err);
 	err = clSetKernelArg(convKernel, i++, sizeof(cl_int), &imageCnt);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(convKernel, i++, sizeof(cl_float)*D1*3*3, NULL);
+	err = clSetKernelArg(convKernel, i++, sizeof(cl_float)*3*3, NULL);
+	CHECK_ERROR(err);
+	err = clSetKernelArg(convKernel, i++, sizeof(cl_float)*256, NULL);
 	CHECK_ERROR(err);
 
 	int work_dim = 2;
@@ -359,11 +361,22 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 	before_kernel_sec += time_span.count();
 #endif
 
-	cl_event kernel_event;
-	err = clEnqueueNDRangeKernel(
-		kernel_queue, convKernel, work_dim, NULL,
-		global_work_size, local_work_size,
-		0, NULL, &kernel_event);
+	cl_event kernel_event = NULL;
+	for (int in_channel = 0; in_channel < D1; in_channel++)
+	{
+		err = clSetKernelArg(convKernel, i, sizeof(cl_int), &in_channel);
+		CHECK_ERROR(err);
+
+		err = clEnqueueNDRangeKernel(
+			kernel_queue, convKernel, work_dim, NULL,
+			global_work_size, local_work_size,
+			0, NULL, &kernel_event);
+		CHECK_ERROR(err);
+	}
+
+	float* biases = (float*)calloc(sizeof(cl_float), D2);
+	err = clEnqueueReadBuffer(kernel_queue, bufBiases, CL_FALSE, 0, sizeof(cl_float)*D2, biases,
+		0, NULL, NULL);
 	CHECK_ERROR(err);
 
 	cl_event read_event;
@@ -371,6 +384,19 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 		0, NULL, &read_event);
 	CHECK_ERROR(err);
 
+#define ReLU(x) (((x)>0)?(x):0)
+	for (int batch = 0; batch < imageCnt; batch++)
+	{
+		for (int out_channel = 0; out_channel < D2; out_channel++)
+		{
+			float* output = outputs + N * N * (D2*batch + out_channel);
+			for (int row = 0; row < N; row++)
+				for (int col = 0; col < N; col++)
+					output[row * N + col] = ReLU(output[row * N + col] + biases[out_channel]);
+		}
+	}
+
+	free(biases);
 	err = clReleaseMemObject(bufInputs);
 	CHECK_ERROR(err);
 	err = clReleaseMemObject(bufOutputs);
