@@ -436,6 +436,8 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 	CHECK_ERROR(err);
 	err = clSetKernelArg(fcKernel, i++, sizeof(cl_int), &imageCnt);
 	CHECK_ERROR(err);
+	err = clSetKernelArg(fcKernel, i++, sizeof(cl_float)*inN, NULL);
+	CHECK_ERROR(err);
 
 	int work_dim = 2;
 	const size_t global_work_size[] = { outM, batch_size };
