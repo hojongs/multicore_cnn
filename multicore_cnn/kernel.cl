@@ -28,8 +28,11 @@ __kernel void conv(
 
 	if (lid < 9)
 		l_filter[lid] = filter[lid];
-	if (N == 16)
-		l_input[lid] = input[lid];
+	if (N <= 16)
+		l_input[lid] = input[lid % (N*N)];
+	__local int batch_start;
+	if (lid == 0)
+		batch_start = batch;
 	barrier(CLK_LOCAL_MEM_FENCE);
 	
 	if (batch >= imageCnt)
@@ -41,7 +44,7 @@ __kernel void conv(
 		//__global const float* input = inputs + N * N * (D1*batch + in_channel);
 		//__global const float* filter = filters + out_channel * D1 * 3 * 3 + in_channel*3*3;
 
-		if (N == 16)
+		if (N <= 16)
 		{
 			for (int k = 0; k < 3; k++) {
 				for (int l = 0; l < 3; l++) {
@@ -50,7 +53,7 @@ __kernel void conv(
 					if (x >= 0 && x < N && y >= 0 && y < N)
 						//sum += input[x * N + y] * l_filter[(in_channel*3*3) + (k*3) + l];
 						//sum += input[x * N + y] * filter[(k*3) + l];
-						sum += l_input[x * N + y] * l_filter[(k*3) + l];
+						sum += l_input[(batch-batch_start)*N*N + x * N + y] * l_filter[(k*3) + l];
 				}
 			}
 		}
