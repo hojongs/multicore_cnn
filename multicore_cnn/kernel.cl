@@ -1,6 +1,56 @@
 #define ReLU(x) (((x)>0)?(x):0)
 
-__kernel void conv(
+__kernel void conv1(
+		__global const float* inputs,
+		__global const float* filters,
+		__global float* outputs,
+		__constant float* biases,
+		const int D1,
+		const int D2,
+		const int N,
+		const int imageCnt,
+		__local float* l_filter
+	) 
+{
+	const int out_channel = get_global_id(0);
+	const int batch = get_global_id(1) / (N*N);
+	const int remain = get_global_id(1) % (N*N);
+	const int i = remain / N;
+	const int j = remain % N;
+	const int lid = get_local_id(1);
+	const int lsize = get_local_size(1);
+
+    __global float* output = outputs + N * N * (D2*batch + out_channel);
+	
+	if (lid < D1)
+		for(int l=0;l<D1;l+=lsize)
+			for(int k=0;k<9;k++)
+				l_filter[(l+lid)*3*3 + k] = filters[out_channel * D1 * 3 * 3 + (l+lid)*3*3 + k];
+	barrier(CLK_LOCAL_MEM_FENCE);
+	
+	if (batch >= imageCnt)
+		return;
+
+	float sum = 0;
+	for (int in_channel = 0;in_channel<D1;in_channel++)
+	{
+		__global const float* input = inputs + N * N * (D1*batch + in_channel);
+
+		for (int k = 0; k < 3; k++) {
+			for (int l = 0; l < 3; l++) {
+				int x = i + k - 1;
+				int y = j + l - 1;
+				if (x >= 0 && x < N && y >= 0 && y < N)
+					sum += input[x * N + y] * l_filter[(in_channel*3*3) + (k*3) + l];
+			}
+		}
+	}
+
+	const float bias = biases[out_channel];
+	output[i * N + j] = ReLU(output[i * N + j] + sum + bias);
+}
+
+__kernel void conv2(
 		__global const float* inputs,
 		__global const float* filters,
 		__global float* outputs,
@@ -28,8 +78,7 @@ __kernel void conv(
 
 	if (lid < 9)
 		l_filter[lid] = filter[lid];
-	if (N <= 16)
-		l_input[lid] = input[lid % (N*N)];
+	l_input[lid] = input[lid % (N*N)];
 	__local int batch_start;
 	if (lid == 0)
 		batch_start = batch;
@@ -39,41 +88,22 @@ __kernel void conv(
 		return;
 
 	float sum = 0;
-	//for (int in_channel = 0; in_channel < D1; in_channel++)
-    {
-		//__global const float* input = inputs + N * N * (D1*batch + in_channel);
-		//__global const float* filter = filters + out_channel * D1 * 3 * 3 + in_channel*3*3;
-
-		if (N <= 16)
-		{
-			for (int k = 0; k < 3; k++) {
-				for (int l = 0; l < 3; l++) {
-					int x = i + k - 1;
-					int y = j + l - 1;
-					if (x >= 0 && x < N && y >= 0 && y < N)
-						//sum += input[x * N + y] * l_filter[(in_channel*3*3) + (k*3) + l];
-						//sum += input[x * N + y] * filter[(k*3) + l];
-						sum += l_input[(batch-batch_start)*N*N + x * N + y] * l_filter[(k*3) + l];
-				}
-			}
-		}
-		else
-		{
-			for (int k = 0; k < 3; k++) {
-				for (int l = 0; l < 3; l++) {
-					int x = i + k - 1;
-					int y = j + l - 1;
-					if (x >= 0 && x < N && y >= 0 && y < N)
-						//sum += input[x * N + y] * l_filter[(in_channel*3*3) + (k*3) + l];
-						//sum += input[x * N + y] * filter[(k*3) + l];
-						sum += input[x * N + y] * l_filter[(k*3) + l];
-				}
-			}
+	for (int k = 0; k < 3; k++) {
+		for (int l = 0; l < 3; l++) {
+			int x = i + k - 1;
+			int y = j + l - 1;
+			if (x >= 0 && x < N && y >= 0 && y < N)
+				sum += l_input[(batch-batch_start)*N*N + x * N + y] * l_filter[(k*3) + l];
 		}
 	}
-	//const float bias = biases[out_channel];
-	//output[i * N + j] = ReLU(sum + bias);
-	output[i * N + j] += sum;
+
+	if (in_channel != D1-1)
+		output[i * N + j] += sum;
+	else
+	{
+		const float bias = biases[out_channel];
+		output[i * N + j] = ReLU(output[i * N + j] + sum + bias);
+	}
 }
 
 __kernel void fc(
