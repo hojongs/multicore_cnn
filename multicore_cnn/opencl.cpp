@@ -494,12 +494,12 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 	CHECK_ERROR(err);
 	err = clSetKernelArg(fcKernel, i++, sizeof(cl_int), &imageCnt);
 	CHECK_ERROR(err);
-	err = clSetKernelArg(fcKernel, i++, sizeof(cl_float)*inN, NULL);
-	CHECK_ERROR(err);
+	//err = clSetKernelArg(fcKernel, i++, sizeof(cl_float)*inN, NULL);
+	//CHECK_ERROR(err);
 
 	int work_dim = 2;
 	const size_t global_work_size[] = { outM, batch_size };
-	const size_t local_work_size[] = { 1, 256 };
+	//const size_t local_work_size[] = { 1, 256 };
 
 #ifdef PROFILE_ENABLE
 	t2 = high_resolution_clock::now();
@@ -510,7 +510,7 @@ void clFc(float *input_neuron, float *output_neuron, cl_mem weights, cl_mem bias
 	cl_event kernel_event;
 	err = clEnqueueNDRangeKernel(
 		kernel_queue, fcKernel, work_dim, NULL,
-		global_work_size, local_work_size,
+		global_work_size, NULL,
 		0, NULL, &kernel_event);
 	CHECK_ERROR(err);
 

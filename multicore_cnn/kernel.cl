@@ -114,8 +114,8 @@ __kernel void fc(
 		const int inN,
 		const int outM,
 		const int batch_size,
-		const int imageCnt,
-		__local float* l_weights
+		const int imageCnt
+		//__local float* l_weights
 	)
 {
 	const int out = get_global_id(0);
@@ -123,20 +123,22 @@ __kernel void fc(
 	const int lid = get_local_id(1);
 	const int lsize = get_local_size(1);
 
+	/*
 	if (lid < inN)
 	{
 		for(int l=0;l<inN;l+=lsize)
 			l_weights[l+lid] = weights[out * inN + l+lid];
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
+	*/
 	
 	if (batch >= imageCnt)
 		return;
 
 	float sum = 0;
 	for (int in = 0; in < inN; in++)
-		//sum += input_neuron[batch * inN + in] * weights[out * inN + in];
-		sum += input_neuron[batch * inN + in] * l_weights[in];
+		sum += input_neuron[batch * inN + in] * weights[out * inN + in];
+		//sum += input_neuron[batch * inN + in] * l_weights[in];
 
 	output_neuron[batch * outM + out] = ReLU(sum + biases[out]);
 }
