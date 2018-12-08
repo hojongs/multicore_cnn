@@ -31,7 +31,7 @@ __kernel void conv1(
 	if (batch >= imageCnt)
 		return;
 
-	register float sum = 0;
+	float sum = 0;
 	for (int in_channel = 0;in_channel<D1;in_channel++)
 	{
 		__global const float* input = inputs + N * N * (D1*batch + in_channel);
@@ -87,7 +87,7 @@ __kernel void conv2(
 	if (batch >= imageCnt)
 		return;
 	
-	register float sum = 0;
+	float sum = 0;
 	for (int k = 0; k < 3; k++) {
 		for (int l = 0; l < 3; l++) {
 			int x = i + k - 1;
