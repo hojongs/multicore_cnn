@@ -328,6 +328,9 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 	cl_event write_event;
 	err = clEnqueueWriteBuffer(kernel_queue, bufInputs, CL_FALSE, 0, inputs_size, inputs, 0, NULL, &write_event);
 	CHECK_ERROR(err);
+	cl_float pattern[] = { 0 };
+	err = clEnqueueFillBuffer(kernel_queue, bufOutputs, pattern, sizeof(cl_float), 0, outputs_size, 0, NULL, NULL);
+	CHECK_ERROR(err);
 
 	if (N >= 8)
 	{
