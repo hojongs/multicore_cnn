@@ -332,7 +332,7 @@ void clConv(float *inputs, float *outputs, cl_mem bufFilters, cl_mem bufBiases, 
 	err = clEnqueueFillBuffer(kernel_queue, bufOutputs, pattern, sizeof(cl_float), 0, outputs_size, 0, NULL, NULL);
 	CHECK_ERROR(err);
 
-	if (N >= 8)
+	if (N*N > 256)
 	{
 		int i = 0;
 		err = clSetKernelArg(convKernel, i++, sizeof(cl_mem), &bufInputs);
