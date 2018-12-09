@@ -1,3 +1,4 @@
+// g++ -o run *.cpp -I/usr/local/cuda/include/ -std=gnu++11 -L/usr/local/cuda/lib64/ -lm -lOpenCL
 #include "cnn.h"
 #pragma warning(disable:4996)
 
@@ -31,7 +32,7 @@ int main(int argc, char **argv)
     clock_t start = clock();
     cnn(images, network_sliced, labels, confidences, num_images, batch_size);
 	clock_t end = clock();
-    printf("Elapsed time: %f sec\n", (double)(end - start) / CLK_TCK);
+    printf("Elapsed time: %f sec\n", (double)(end - start) / CLOCKS_PER_SEC);
 
     FILE *of = fopen("result.out", "w");
     int *labels_ans = read_labels(num_images);

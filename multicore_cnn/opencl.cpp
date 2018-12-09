@@ -91,7 +91,7 @@ const char *getErrorString(cl_int error)
 	}
 }
 
-char* getSourceCode(_In_ const char *file_name, _Out_ size_t *len) {
+char* getSourceCode(const char *file_name, size_t *len) {
 	char* source_code;
 	size_t length;
 	FILE* file = fopen(file_name, "r");
