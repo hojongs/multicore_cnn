@@ -9,11 +9,11 @@ extern const char *CLASS_NAME[];
 
 int main(int argc, char **argv)
 {
-    if (argc != 3) {
-        print_usage_and_exit(argv);
-    }
+    //if (argc != 3) {
+    //    print_usage_and_exit(argv);
+    //}
 
-    int num_images = atoi(argv[1]);
+    int num_images = 3000;
 	printf("num_images : ");
 	scanf("%d", &num_images);
 
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 	clock_t end = clock();
     printf("Elapsed time: %f sec\n", (double)(end - start) / CLK_TCK);
 
-    FILE *of = fopen(argv[2], "w");
+    FILE *of = fopen("result.out", "w");
     int *labels_ans = read_labels(num_images);
     double acc = 0;
     for (int i = 0; i < num_images; ++i) {
